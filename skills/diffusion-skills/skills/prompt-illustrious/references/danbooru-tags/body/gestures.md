@@ -1,0 +1,127 @@
+# Gestures
+
+- `v` (218,929 posts) — ✌️
+- `pointing` (87,703 posts)
+- `clenched_hand` (82,024 posts)
+- `index_finger_raised` (70,064 posts) — ☝️
+- `clenched_hands` (57,091 posts) — !post #7820972
+- `reaching` (45,502 posts)
+- `double_v` (39,883 posts) — !post #6709209
+- `waving` (37,670 posts)
+- `heart_hands` (36,898 posts) — !post #7461279:  🫶
+- `paw_pose` (34,498 posts)
+- `w` (27,425 posts)
+- `claw_pose` (26,602 posts)
+- `open_hand` (23,479 posts)
+- `own_hands_clasped` (20,580 posts) — !post #5418270
+- `salute` (19,771 posts)
+- `thumbs_up` (18,860 posts)
+- `pointing_at_viewer` (16,257 posts) — 🫵
+- `fox_shadow_puppet` (11,463 posts)
+- `shushing` (10,982 posts)
+- `open_hands` (10,855 posts) — !post #11240366
+- `steepled_fingers` (10,339 posts) — !post #11199739
+- `pointing_at_self` (9,715 posts)
+- `\m/` (9,394 posts) — 🤟
+- `v_over_eye` (9,357 posts)
+- `pinky_out` (9,275 posts)
+- `pointing_up` (8,406 posts)
+- `middle_finger` (7,716 posts) — 🖕
+- `rabbit_pose` (7,368 posts) — !post #11289974
+- `finger_gun` (7,306 posts) — 👈
+- `ok_sign` (5,570 posts) — 👌
+- `fellatio_gesture` (5,511 posts)
+- `twirling_hair` (5,394 posts)
+- `spread_fingers` (5,229 posts)
+- `heart_hands_duo` (5,184 posts) — !post #3249135
+- `curled_fingers` (4,719 posts)
+- `pointing_at_another` (4,188 posts)
+- `index_fingers_together` (3,805 posts) — !post #8030305:  👉👈
+- `finger_heart` (3,514 posts) — 🫰
+- `beckoning` (3,416 posts)
+- `heart_tail` (3,067 posts)
+- `stroking_own_chin` (2,923 posts)
+- `bowing` (2,826 posts)
+- `raised_fist` (2,703 posts)
+- `cupping_hands` (2,666 posts) — !post #10027337
+- `v_over_mouth` (2,591 posts)
+- `curtsey` (2,546 posts)
+- `oral_invitation` (2,488 posts)
+- `akanbe` (2,359 posts)
+- `gyaru_v` (2,259 posts)
+- `hat_tip` (2,118 posts)
+- `finger_frame` (2,103 posts) — !post #8690443
+- `kuji-in` (2,075 posts)
+- `\n/` (1,946 posts) — 🤘
+- `pointing_forward` (1,794 posts)
+- `facepalm` (1,744 posts)
+- `two-finger_salute` (1,702 posts)
+- `finger_counting` (1,470 posts) — !post #10252406
+- `fidgeting` (1,435 posts) — !post #10193941
+- `double_\m/` (1,409 posts) — !post #7071092
+- `fist_bump` (1,328 posts) — !post #6317280
+- `shrugging` (1,308 posts)
+- `handjob_gesture` (1,179 posts)
+- `thumbs_down` (1,149 posts)
+- `l_hand` (1,147 posts) — 👆
+- `high_five` (1,087 posts) — !post #10250227
+- `x_fingers` (988 posts) — !post #3435311
+- `heart_arms` (909 posts) — !post #8690438
+- `inward_v` (904 posts)
+- `x_arms` (900 posts) — !post #7073016
+- `pointing_down` (891 posts)
+- `middle_w` (848 posts)
+- `pinky_swear` (754 posts) — !post #11290341
+- `penetration_gesture` (743 posts) — !post #3742138
+- `holding_with_gesture` (734 posts)
+- `horns_pose` (702 posts) — !post #9700579
+- `double_thumbs_up` (614 posts) — !post #9660888
+- `tsuki_ni_kawatte_oshioki_yo` (608 posts) — !post #3912441
+- `fist_in_hand` (595 posts) — !post #10212654
+- `double_finger_gun` (552 posts) — !post #9791744
+- `shadow_puppet` (519 posts) — !post #10248218
+- `victory_pose` (514 posts)
+- `shaka_sign` (512 posts) — 🤙
+- `power_fist` (497 posts)
+- `money_gesture` (492 posts)
+- `saturday_night_fever` (469 posts)
+- `cunnilingus_gesture` (378 posts)
+- `dojikko_pose` (327 posts)
+- `groping_motion` (321 posts) — !post #3644688
+- `crossed_fingers` (321 posts) — 🤞
+- `palm-fist_greeting` (296 posts) — !post #6187865
+- `heart_tail_duo` (281 posts)
+- `vulcan_salute` (260 posts) — 🖖
+- `double_\n/` (258 posts) — !post #3780741
+- `fig_sign` (232 posts)
+- `carry_me` (218 posts) — !post #8867217
+- `number_four_(asl)` (207 posts)
+- `triangle_hands` (179 posts) — !post #6938538
+- `pointing_spider-man_(meme)` (155 posts)
+- `pinching_gesture` (150 posts)
+- `stop_(gesture)` (133 posts)
+- `air_guitar` (121 posts)
+- `heart_hands_trio` (118 posts) — !post #7456224
+- `circle_hands` (108 posts) — !post #2893714
+- `kamina_pose` (108 posts)
+- `double_l` (99 posts) — !post #7614742
+- `palm-fist_tap` (98 posts) — !post #6274017
+- `noogie` (92 posts) — !post #8063718
+- `straight-arm_salute` (89 posts)
+- `double_thumbs_down` (78 posts) — !post #8870067
+- `kitsune_no_mado` (68 posts) — !asset #24230296
+- `hand_glasses` (64 posts) — !post #7530425
+- `star_hands` (64 posts)
+- `no_(gesture)` (63 posts)
+- `slit_throat_(gesture)` (48 posts)
+- `air_quotes` (34 posts) — !post #3267302
+- `shocker_(gesture)` (32 posts)
+- `hand_of_benediction` (25 posts)
+- `distress_hand_signal` (25 posts)
+- `hand_gesture_duo` (18 posts) — !post #10265343
+- `heart_hands_quartet` (16 posts) — !post #9531690
+- `orchid_fingers` (13 posts)
+- `ohikaenasutte` (5 posts)
+- `tag_groups` — [See .]
+- `\`
+- `oral_simulation`

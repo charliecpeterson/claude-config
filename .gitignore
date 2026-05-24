@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Per-machine Claude Code overrides (do not sync)
+settings.local.json
+**/.claude/settings.local.json
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Backups created by install.sh
+*.backup-*
+
+# Generated artifacts
+security-workflow.zip
