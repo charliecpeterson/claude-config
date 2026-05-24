@@ -72,7 +72,7 @@ run_check() {
   echo
 
   echo "Synced files:"
-  for name in CLAUDE.md style.md communication.md; do
+  for name in CLAUDE.md style.md communication.md engineering.md; do
     local dest="$CLAUDE_DIR/$name"
     if [[ -L "$dest" ]] && [[ "$(readlink "$dest")" == "$REPO_DIR/$name" ]]; then
       echo "  ✓ $name"
@@ -157,7 +157,7 @@ echo "Target:          $CLAUDE_DIR"
 echo
 
 echo "Global config files:"
-for name in CLAUDE.md style.md communication.md; do
+for name in CLAUDE.md style.md communication.md engineering.md; do
   if [[ -f "$REPO_DIR/$name" ]]; then
     link_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
   fi
@@ -297,3 +297,4 @@ fi
 echo
 echo "Done. Restart Claude Code if it was running, so it picks up changes."
 [[ "$WITH_SECURITY" -eq 1 ]] && echo "Run './install.sh --check' anytime to verify everything's wired up."
+exit 0

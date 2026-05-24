@@ -5,3 +5,4 @@ overrides them. Project files take precedence on conflict.
 
 @./style.md
 @./communication.md
+@./engineering.md

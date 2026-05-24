@@ -1,16 +1,17 @@
 # claude-config
 
 Personal Claude Code configuration: global instructions, coding style,
-communication preferences, and skills. One repo, cloned to every machine,
-symlinked into `~/.claude/` by `install.sh`.
+communication preferences, engineering judgment, and skills. One repo, cloned
+to every machine, symlinked into `~/.claude/` by `install.sh`.
 
 ## Layout
 
 ```
 .
-├── CLAUDE.md           Global instructions (imports style.md and communication.md)
+├── CLAUDE.md           Global instructions (imports the three files below)
 ├── style.md            Coding style and conduct
 ├── communication.md    Chat tone and format
+├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
 ├── install.sh          Symlinks files into ~/.claude/
 └── .gitignore
@@ -30,7 +31,7 @@ cd ~/projects/claude-config
 
 The script:
 - Symlinks `~/.claude/CLAUDE.md` → `~/projects/claude-config/CLAUDE.md` (and the
-  same for `style.md`, `communication.md`).
+  same for `style.md`, `communication.md`, `engineering.md`).
 - Symlinks each skill folder under `~/.claude/skills/<name>` → the matching
   folder in this repo.
 - Backs up any existing real file at the target path to
@@ -51,6 +52,7 @@ machines, `git pull` and the changes propagate.
 | Skill | Purpose |
 |---|---|
 | `bug-hunter` | Disciplined debugging — root cause, not symptom |
+| `code-review-deep` | Tool-grounded review — whole-codebase assessment by default (Continue/Refactor/Rebuild), or a deep scoped change review when you name a PR/commit (distinct from built-in `/code-review`) |
 | `deep-planner` | Exhaustive one-question-at-a-time planning sessions |
 | `dyslexia-friendly` | Formats all output for dyslexic-friendly reading |
 | `editor` | Critique-only feedback on drafts (no rewriting) |
