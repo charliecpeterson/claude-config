@@ -1,107 +1,102 @@
-# Code Security Workflow
+# security-advisories MCP server
 
-A three-layer security workflow that runs after commits, bug fixes, and code reviews. Designed to let smaller LLMs operate at senior-pentester level by combining deterministic scanners with live CVE data and structured threat-model analysis.
+Live vulnerability and exploit-intelligence lookups for any MCP client
+(Claude Code, Claude Desktop). Pairs with the `security-review-deep`
+skill but works standalone.
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 1: pre-commit / CI                                    │
-│  Fast deterministic scanners catch the obvious stuff         │
-│  semgrep · osv-scanner · trivy · gitleaks · bandit           │
-└────────────────────────────┬─────────────────────────────────┘
-                             │ findings (SARIF/JSON)
-                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 2: security-advisories MCP server                     │
-│  Live CVE / advisory queries during review                   │
-│  OSV.dev · NVD · GitHub GHSA                                 │
-└────────────────────────────┬─────────────────────────────────┘
-                             │ grounded vuln data
-                             ▼
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 3: security-review skill                              │
-│  LLM orchestration: runs scanners, queries MCP, walks the    │
-│  threat-model checklist, triages by exploitability, outputs  │
-│  a structured report with suggested patches                  │
-└──────────────────────────────────────────────────────────────┘
-```
+## Why this exists
 
-## Why three layers?
+LLMs hallucinate CVE IDs and confuse advisory metadata. This server
+fronts six authoritative sources behind a small set of well-typed tools
+so the model can cite real data instead of inventing it:
 
-- **Scanners alone** miss context. Semgrep flags a SQL concat but can't tell you the input is hardcoded admin config.
-- **LLM alone** hallucinates. It will confidently invent CVE-2024-99999 if you don't ground it.
-- **MCP alone** is data without judgment.
+| Source       | Best for                                              |
+| ------------ | ----------------------------------------------------- |
+| OSV.dev      | "is this package@version vulnerable?"                 |
+| GitHub GHSA  | rich advisory metadata, CVSS, patched ranges          |
+| NVD          | CVE-by-id (note: only ~15-20% enrichment after Apr 2026) |
+| CISA KEV     | "is this CVE being weaponized right now?"             |
+| FIRST EPSS   | exploit-probability score (0.0-1.0, next 30 days)     |
+| Composite    | CVSS + EPSS + KEV → single 0-100 triage score         |
 
-Together: scanners do recall, MCP keeps the LLM honest about CVEs, the skill provides the structured reasoning that turns raw findings into an actionable review.
+## Tools exposed
 
-## What's in this folder
+| Tool                       | What it does                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `check_package`            | OSV query for one package@version                                            |
+| `check_dependencies_bulk`  | OSV batch query for a whole lockfile (up to 1000 entries, parallel hydrate)  |
+| `latest_safe_version`      | Given a vulnerable package@version, return minimum upgrade target(s)         |
+| `lookup_cve`               | NVD record for a CVE id                                                      |
+| `recent_critical_cves`     | NVD HIGH/CRITICAL CVEs in the last N days, optional keyword filter           |
+| `ghsa_get`                 | Full GitHub Security Advisory by GHSA id                                     |
+| `ghsa_search`              | GitHub advisory search (best-effort; prefer ghsa_get / check_package)        |
+| `kev_lookup`               | CISA Known Exploited Vulnerabilities check                                   |
+| `epss_score`               | FIRST.org EPSS exploit-prediction score                                      |
+| `composite_risk`           | Combined CVSS + EPSS + KEV triage signal with a 0-100 composite score        |
 
-```
-security-workflow/
-├── pre-commit/
-│   ├── .pre-commit-config.yaml   # Runs locally on `git commit`
-│   └── security.yml              # GitHub Actions equivalent for CI
-├── mcp-server/
-│   ├── mcp_security_server.py    # The MCP server (Python, FastMCP)
-│   ├── pyproject.toml
-│   └── README.md                 # Install + wire-up instructions
-└── skill/
-    ├── SKILL.md                  # Claude Code skill entry point
-    └── references/
-        ├── threat-checklist.md   # 15-category review checklist
-        └── report-template.md    # Output format
+## Install
+
+```bash
+cd mcp-server
+uv sync       # or: pip install -e .
 ```
 
-## Setup order
+Register with Claude Code:
 
-1. **Install the scanners** (one-time, system-wide):
-   ```bash
-   # macOS
-   brew install semgrep trivy gitleaks
-   pip install pre-commit bandit osv-scanner
+```bash
+claude mcp add security-advisories -- \
+    uv --directory "$(pwd)" run mcp_security_server.py
+```
 
-   # Or use the Docker images for each in CI
-   ```
+Or, in Claude Desktop, add to `claude_desktop_config.json`:
 
-2. **Drop the pre-commit config into your repo:**
-   ```bash
-   cp pre-commit/.pre-commit-config.yaml /path/to/repo/
-   cd /path/to/repo && pre-commit install
-   ```
+```json
+{
+  "mcpServers": {
+    "security-advisories": {
+      "command": "uv",
+      "args": ["--directory", "/abs/path/to/mcp-server", "run", "mcp_security_server.py"]
+    }
+  }
+}
+```
 
-3. **Drop the CI workflow:**
-   ```bash
-   cp pre-commit/security.yml /path/to/repo/.github/workflows/
-   ```
+## Optional environment
 
-4. **Install the MCP server:**
-   ```bash
-   cd mcp-server && pip install -e .
-   claude mcp add security-advisories -- python "$(pwd)/mcp_security_server.py"
-   ```
-   (Or wire into Claude Desktop via `claude_desktop_config.json` — see `mcp-server/README.md`.)
+| Variable        | Effect                                                  |
+| --------------- | ------------------------------------------------------- |
+| `GITHUB_TOKEN`  | Lifts GHSA rate limit from 60/hr to 5000/hr             |
+| `NVD_API_KEY`   | Lifts NVD rate limit (request at nvd.nist.gov)          |
 
-5. **Install the skill** — depends on your client. For Claude Code, place the `skill/` directory in your skills folder. For Claude Desktop, package and install as a `.skill` file.
+Neither is required for normal use. The KEV catalog and EPSS API have
+no auth.
 
-## Daily usage
+## Operational notes
 
-After a commit:
-> "security review on the last commit"
+- **KEV catalog is cached** for 1 hour per process. Cache is rebuilt
+  lazily on the next call after expiry.
+- **Bulk OSV hydration** runs up to 16 in-flight requests at a time
+  (`OSV_HYDRATE_CONCURRENCY`).
+- **Response size cap** is 10 MiB per upstream call. Anything larger
+  raises rather than being silently truncated.
+- **All inputs are validated** (CVE ids by regex, GHSA ids by regex,
+  package names by charset, ecosystems normalized via alias map). Bad
+  inputs raise `ValueError` rather than being forwarded.
+- **Every response** carries `source` and `fetched_at` keys so the
+  model can cite provenance and stale caches are visible.
 
-After upgrading a dep:
-> "I just bumped requests to 2.32.0, any CVEs I should know about?"
+## Triage convention
 
-Reviewing a PR:
-> "audit this PR for vulnerabilities — diff is against main"
+`composite_risk` returns a `triage_bucket` that the `security-review-deep`
+skill uses to slot findings:
 
-The skill will route the request: scope the change → run the scanners → query the MCP for live CVE data → walk the threat checklist → produce a triaged report.
+| Bucket    | Composite | Trigger conditions                                       |
+| --------- | --------- | -------------------------------------------------------- |
+| Critical  | >= 90     | In CISA KEV, OR CVSS 9+ with EPSS >= 0.5                 |
+| High      | 70-89     | EPSS >= 0.5, OR CVSS 7-9                                 |
+| Medium    | 40-69     | CVSS 4-7                                                 |
+| Low       | 1-39      | CVSS < 4                                                 |
+| Unknown   | 0         | No scoring data available                                |
 
-## How it makes small models better
-
-A 7B-class model asked "is this code secure?" will mostly guess. The same model with this workflow has:
-
-- **Real findings** to reason about (from the scanners) instead of inventing them
-- **Verified CVE data** (from MCP) instead of hallucinated advisory IDs
-- **A checklist** (from the skill) so coverage doesn't depend on what the model happens to remember
-- **A report format** so output is consistent and actionable
-
-The model's job shrinks from "find vulnerabilities" (hard, error-prone) to "explain and prioritize the findings these tools surfaced and check whether anything obvious in the diff was missed" (much more tractable).
+KEV membership is the strongest available "actively exploited" signal
+and overrides everything else.

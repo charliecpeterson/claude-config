@@ -160,13 +160,43 @@ install_security_tools() {
     return 0
   fi
 
+  # Core multi-language SAST + secrets + deps
   uv_tool_install semgrep
   uv_tool_install bandit
   uv_tool_install pip-audit
 
   binary_install gitleaks gitleaks "download a release from https://github.com/gitleaks/gitleaks/releases"
+  binary_install trufflehog trufflehog "brew install trufflesecurity/trufflehog/trufflehog (or release from https://github.com/trufflesecurity/trufflehog/releases)"
   binary_install trivy trivy "curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b ~/.local/bin"
   binary_install osv-scanner osv-scanner "go install github.com/google/osv-scanner/cmd/osv-scanner@latest (or a release from https://github.com/google/osv-scanner/releases)"
+
+  # CI / build / infra hardening
+  uv_tool_install zizmor       # GitHub Actions workflow security
+  uv_tool_install checkov      # IaC: Terraform / K8s / Helm / CFN / ARM / Bicep
+  binary_install hadolint hadolint "download a release from https://github.com/hadolint/hadolint/releases"
+  binary_install shellcheck shellcheck "apt/yum/dnf install shellcheck (or release from https://github.com/koalaman/shellcheck/releases)"
+
+  # JS/TS language layer (Python-installable, sees React/Express patterns)
+  uv_tool_install njsscan
+
+  # SBOM + cross-check vuln scanning
+  binary_install syft syft "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin"
+  binary_install grype grype "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b ~/.local/bin"
+
+  # Language-specific tools that need their own toolchain: only flag, don't auto-install
+  for pair in \
+    "gosec|go install github.com/securego/gosec/v2/cmd/gosec@latest" \
+    "govulncheck|go install golang.org/x/vuln/cmd/govulncheck@latest" \
+    "brakeman|gem install brakeman" \
+    "cargo-audit|cargo install cargo-audit"
+  do
+    cmd="${pair%%|*}"; hint="${pair##*|}"
+    if command -v "$cmd" >/dev/null 2>&1; then
+      echo "  ok       $cmd already installed"
+    else
+      echo "  manual   $cmd: $hint"
+    fi
+  done
 
   build_and_register_advisories_mcp
 
@@ -235,12 +265,27 @@ run_check() {
     echo
     echo "Security tools (for security-review-deep):"
     local sec_missing=0
-    for t in semgrep bandit gitleaks trivy osv-scanner pip-audit uv; do
+    # Core: needed for any run.
+    for t in semgrep bandit gitleaks trufflehog trivy osv-scanner pip-audit uv; do
       if command -v "$t" >/dev/null 2>&1; then
         echo "  ✓ $t"
       else
         echo "  ✗ $t (run ./install.sh and choose to install security tools)"
         sec_missing=1
+      fi
+    done
+    # CI / IaC / SBOM. Missing here = the skill silently skips that layer.
+    for t in zizmor checkov hadolint shellcheck njsscan syft grype; do
+      if command -v "$t" >/dev/null 2>&1; then
+        echo "  ✓ $t"
+      else
+        echo "  - $t (optional; review skips this layer if absent)"
+      fi
+    done
+    # Language toolchains: only relevant if you work in that language.
+    for t in gosec govulncheck brakeman cargo-audit; do
+      if command -v "$t" >/dev/null 2>&1; then
+        echo "  ✓ $t"
       fi
     done
 
