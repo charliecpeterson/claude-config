@@ -185,11 +185,19 @@ in the diff.
 - [x] **P1** Test-coverage check on changed lines added to Step 2
   "Cross-cutting passes." Implementation deferred to the per-project
   coverage tool the model picks at run time.
-- [ ] **P2** Custom-rule prompt at end of review: "did you see a pattern
-  here that should become a project-specific semgrep rule?" Write to
-  `.semgrep/project-rules.yml`.
-- [ ] **P2** Time-box per scanner with `timeout 300 ...` and report
-  which ones timed out.
+- [x] **P2** Custom-rule prompt landed as Step 7 of SKILL.md ("Capture
+  project-specific patterns for next time"). Prompts the model to draft
+  a semgrep rule for project-internal foot-guns (unsafe helpers, fields
+  that should always be redacted, monetary `float()` calls), append it
+  to `.semgrep/project-rules.yml`, and note the addition in the report's
+  "Suggested next steps."
+- [x] **P2** Per-scanner timeout wrapping landed. Step 2 introduces a
+  `TO` helper at the top of the always-on block (`TIMEOUT=$(command -v
+  timeout || command -v gtimeout || true); TO() { ... }`) that wraps
+  every scanner in a 300s budget and falls back to running bare if
+  neither `timeout` nor `gtimeout` is on PATH. Run-summary records
+  `{"ran": true, "timed_out": true, "reason": "exceeded 300s budget"}`
+  for tools that hit the cap, surfaced in report-template.md.
 
 ## F. Report / output improvements
 

@@ -61,23 +61,34 @@ Run all available scanners on the scoped change. Don't try to *be* the scanner �
 WORKDIR="${TMPDIR:-/tmp}/security-review-$$"
 mkdir -p "$WORKDIR"
 
+# Wrap every scanner in a 300s budget so one hung tool can't block the
+# whole review. Falls back to running bare if no `timeout` is on PATH
+# (on macOS install GNU coreutils: `brew install coreutils`).
+TIMEOUT=$(command -v timeout || command -v gtimeout || true)
+TO() { [[ -n "$TIMEOUT" ]] && "$TIMEOUT" 300 "$@" || "$@"; }
+# Convention: a scanner that hit the budget exits 124; record
+# {"ran": true, "timed_out": true} for that tool in the run summary
+# rather than dropping the layer silently.
+
 # SAST — pattern-based vuln detection, multi-language
-semgrep --config=p/default --config=p/security-audit \
+TO semgrep --config=p/default --config=p/security-audit \
         --config=p/owasp-top-ten --config=p/cwe-top-25 \
         --json --quiet <changed-files-or-dir> > "$WORKDIR/semgrep.json"
 
 # Dependency CVEs (Google's OSV aggregator)
-osv-scanner scan source -r --format=json --output="$WORKDIR/osv.json" .
+TO osv-scanner scan source -r --format=json --output="$WORKDIR/osv.json" .
 
 # Filesystem / IaC / container vulns; also includes lockfile scanning
-trivy fs --severity HIGH,CRITICAL --format=json --output="$WORKDIR/trivy.json" .
+TO trivy fs --severity HIGH,CRITICAL --format=json --output="$WORKDIR/trivy.json" .
 
 # Secrets — fast regex layer
-gitleaks detect --no-banner --report-format=json --report-path="$WORKDIR/gitleaks.json"
+TO gitleaks detect --no-banner --report-format=json --report-path="$WORKDIR/gitleaks.json"
 
 # Secrets — live-credential verification (different findings than gitleaks; run both)
-trufflehog filesystem . --json --no-update > "$WORKDIR/trufflehog.json"
+TO trufflehog filesystem . --json --no-update > "$WORKDIR/trufflehog.json"
 ```
+
+Wrap the language-specific and CI/IaC scanner blocks below with the same `TO` helper; the per-scanner block omits the wrapping only for brevity.
 
 Gitleaks catches secret-shaped strings via regex; TruffleHog verifies whether a detected secret is *live* against 20+ providers. The two find different things; run both and union the results.
 
@@ -397,6 +408,37 @@ output. Sample CI step:
 ```
 
 If everything passes, the report can be three lines. If it doesn't, it can be ten pages. Length follows findings, never the other way around.
+
+### Step 7 — Capture project-specific patterns for next time
+
+Before signing off, ask the question that closes the learning loop:
+
+> Did this review surface a pattern specific to *this codebase* that should become a deterministic check next time?
+
+Common candidates:
+
+- A project-internal helper that's unsafe by construction (e.g. an in-house `run_command` that always passes `shell=True`) — write a semgrep rule that flags any call.
+- A wrapper that LOOKS like a safe helper but isn't (e.g. `db.execute_safe(...)` that string-formats internally) — write a rule that flags calls.
+- A field name that should always be redacted in logs (e.g. `customer.ssn`, `token.value`) — write a rule that flags any log statement referencing it.
+- A convention the team agreed on but only humans enforce (e.g. "money goes through `Money.from_decimal`, never `float`") — write a rule that flags `float(...)` near monetary identifiers.
+
+If you find one, draft a semgrep rule and append it to `.semgrep/project-rules.yml` (create the file if absent). Then add `--config=.semgrep/project-rules.yml` to the Step 2 semgrep invocation so the next review picks it up automatically.
+
+Minimum useful rule template:
+
+```yaml
+rules:
+  - id: project.unsafe-run-command
+    message: |
+      Internal `run_command(...)` always uses `shell=True`. Use
+      `subprocess.run([...], shell=False)` directly, or rework the
+      helper to take a list.
+    severity: WARNING
+    languages: [python]
+    pattern: run_command(...)
+```
+
+Include the new rule in the report's "Suggested next steps" so the user knows what was added. One rule per review is plenty — chasing more than that is bikeshedding.
 
 ## Failure modes to actively avoid
 

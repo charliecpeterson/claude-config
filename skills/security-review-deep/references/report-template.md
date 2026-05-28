@@ -136,7 +136,8 @@ Required. Lets the reader sanity-check that the scanners actually ran.
     "zizmor":      {"ran": false, "reason": "no .github/workflows in diff"},
     "hadolint":    {"ran": false, "reason": "not installed"},
     "checkov":     {"ran": false, "reason": "no IaC files in diff"},
-    "syft+grype":  {"ran": true,  "components": 312, "findings": 5, "took_ms": 9200}
+    "syft+grype":  {"ran": true,  "components": 312, "findings": 5, "took_ms": 9200},
+    "spotbugs":    {"ran": true,  "timed_out": true, "took_ms": 300000, "reason": "exceeded 300s budget"}
   },
   "mcp": {
     "calls": 23,
