@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Symlink this repo's Claude Code config files into ~/.claude/ so the same
-# CLAUDE.md, style.md, communication.md, engineering.md, and skills are active
-# wherever the repo is cloned. Existing real files at a target path are backed
-# up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS first.
+# CLAUDE.md, style.md, communication.md, engineering.md, skills, and sub-agents
+# are active wherever the repo is cloned. Existing real files at a target path
+# are backed up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS first.
 #
 # Config files and skills install non-interactively. The script then prompts,
 # once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/projects/,
@@ -51,6 +51,7 @@ done
 
 mkdir -p "$CLAUDE_DIR"
 mkdir -p "$CLAUDE_DIR/skills"
+mkdir -p "$CLAUDE_DIR/agents"
 
 link_file() {
   local src="$1" dest="$2"
@@ -259,6 +260,22 @@ run_check() {
   done
   [[ "$n" -eq 0 ]] && { echo "  (none)"; missing=1; }
 
+  if [[ -d "$REPO_DIR/agents" ]]; then
+    echo
+    echo "Agents linked:"
+    local agents_found=0
+    for link in "$CLAUDE_DIR/agents"/*.md; do
+      [[ -L "$link" ]] || continue
+      local target
+      target="$(readlink "$link")"
+      if [[ "$target" == "$REPO_DIR"/agents/* ]]; then
+        echo "  ✓ $(basename "$link")"
+        ((agents_found++)) || true
+      fi
+    done
+    [[ "$agents_found" -eq 0 ]] && { echo "  (none — re-run ./install.sh)"; missing=1; }
+  fi
+
   if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
     echo
     echo "Personal MCP repos (~/projects; register per-project, see README):"
@@ -363,6 +380,16 @@ for skill_dir in "$REPO_DIR/skills"/*/; do
     link_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
   fi
 done
+
+# Custom sub-agents — flat .md files in agents/, symlinked into ~/.claude/agents/
+if [[ -d "$REPO_DIR/agents" ]]; then
+  echo
+  echo "Agents:"
+  for agent_file in "$REPO_DIR/agents"/*.md; do
+    [[ -f "$agent_file" ]] || continue
+    link_file "$agent_file" "$CLAUDE_DIR/agents/$(basename "$agent_file")"
+  done
+fi
 
 # Diffusion skills live one level deeper: skills/diffusion-skills/skills/<name>/
 if [[ -d "$REPO_DIR/skills/diffusion-skills/skills" ]]; then
