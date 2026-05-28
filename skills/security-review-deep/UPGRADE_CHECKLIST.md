@@ -101,7 +101,10 @@ in the diff.
 - [ ] **P1** .NET: `security-code-scan` — not added; uncommon in this
   setup, can add when needed.
 - [ ] **P1** PHP: `psalm` with security plugin — not added; uncommon.
-- [ ] **P2** C/C++: `flawfinder` + `clang-analyzer` — not added.
+- [x] **P2** C/C++: `flawfinder` + `cppcheck` + `clang-tidy` (with
+  `clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*` checks)
+  now in Step 2 + install.sh. Promoted from P2 to actively wired as
+  part of the section H memory-safety pass.
 
 ### CI / supply chain / IaC
 
