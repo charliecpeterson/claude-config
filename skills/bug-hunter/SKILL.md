@@ -145,6 +145,53 @@ When you step back, literally widen your view. If you were looking at one functi
  
 ---
  
+## Reach for the right runtime tool
+ 
+When the bug fits a particular shape, there's usually a language-specific runtime tool that will surface the root cause faster than prints or reading. Reach for it during Step 2 (evidence) or Step 3 (tracing), not after you've spent an hour instrumenting by hand. The rule: **the right tool for the bug shape beats the most familiar tool.** If you're staring at intermittent test failures in Go and not running `-race` yet, you're working harder than you need to.
+ 
+**Stepping through to inspect state.** When the logic isn't obvious from reading and you need to watch variables change as the code runs:
+ 
+- **Python** — `breakpoint()` / `pdb` / `ipdb`. Drive non-interactively via a script: `python -c "import pdb; pdb.run('...')"` or `pdb.post_mortem()` after a caught exception.
+- **JS/TS** — `node --inspect-brk script.js`, then attach. For Jest/Vitest: `node --inspect-brk node_modules/.bin/jest --runInBand`. Or sprinkle `debugger;` and run under `--inspect`.
+- **Go** — `dlv debug`, `dlv test`, `dlv exec`. Non-interactive: `dlv exec --headless --listen=:2345`.
+- **Rust** — `rust-gdb`, `rust-lldb`, or `cargo` + LLDB via VS Code's CodeLLDB. Pretty-printers matter; use the `rust-` wrappers, not bare `gdb`.
+- **C/C++** — `gdb` / `lldb`. Combine with core-dump analysis (`coredumpctl`, `gcore`) for post-mortem.
+ 
+**Race conditions, deadlocks, concurrent state corruption.** The hardest class of bug; nearly impossible by inspection alone. Use the language's race detector:
+ 
+- **Go** — `go test -race`, `go build -race`, `go run -race`. Mandatory whenever the bug involves goroutines, channels, shared maps, or sync primitives.
+- **Rust** — the borrow checker prevents most data races at compile time. For what slips through `unsafe` or actor-style code, use `loom` for systematic concurrency testing.
+- **C/C++** — ThreadSanitizer (`-fsanitize=thread`), or `helgrind` from Valgrind. TSan is usually faster.
+- **Java** — `jcstress` for JMM-level tests; thread-dump analysis (`jstack`, IntelliJ) for live deadlocks.
+- **Python** — the GIL makes pure-Python races rare; native extensions use C/C++ tools. For `asyncio` ordering bugs, enable `asyncio.get_event_loop().set_debug(True)` and `PYTHONASYNCIODEBUG=1`.
+ 
+**Memory corruption, use-after-free, leaks.**
+ 
+- **C/C++** — AddressSanitizer (`-fsanitize=address`) catches most; UBSan (`-fsanitize=undefined`) catches UB; Valgrind `memcheck` for things ASan misses. Prefer ASan first (faster).
+- **Rust** — `cargo miri test` for UB inside `unsafe`. The borrow checker handles the rest at compile time.
+- **Go** — `go test -race` doubles as a memory-safety net. Escape analysis: `go build -gcflags="-m"`.
+- **GC'd languages (Python, JS, Java, Ruby, Go)** — "leaks" are usually references holding onto memory. Heap profilers: `tracemalloc` (Python), Node DevTools heap snapshots, `pprof` (Go), `jmap` + Eclipse MAT (Java).
+ 
+**Intermittent crashes, non-deterministic failures.**
+ 
+- Sanitizers above catch many.
+- Fuzz the input that triggers it: `go test -fuzz` (Go), `cargo fuzz` (Rust), `libFuzzer` or AFL (C/C++), `hypothesis` (Python), `fast-check` (JS/TS).
+- Stress test: a tight loop running the failing path 10,000 times often makes a 1-in-1000 bug deterministic enough to debug. Combine with `-race` or ASan.
+ 
+**Performance regressions, hangs, "it's slow but I don't know where."**
+ 
+- **Python** — `cProfile` / `py-spy` (sampling, no instrumentation needed, works on live processes).
+- **JS/TS** — Node's `--cpu-prof`, `0x` for flamegraphs.
+- **Go** — `pprof` (CPU, heap, goroutine, block, mutex profiles). Goroutine and block profiles diagnose hangs; `go tool trace` for fine-grained scheduling.
+- **Rust** — `cargo flamegraph`, `perf`, `samply`.
+- **C/C++** — `perf`, Instruments on macOS, `vtune` for deeper analysis.
+ 
+**Wrong output, no error.** See the next section. Runtime tools rarely help; logging, smaller inputs, and tracing values do.
+ 
+A note on environments. Many of these tools change build flags, link against different runtimes, or need `sudo` (perf on Linux, dtrace on macOS). If the project has a CI configuration that already runs `-race` or sanitizers, mirror that locally. If not, set them up once and remember it for next time.
+ 
+---
+ 
 ## When the bug is "the code runs but the output is wrong"
  
 These are harder than crashes because there's no error message pointing anywhere. Approach:

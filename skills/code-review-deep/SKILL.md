@@ -69,6 +69,16 @@ If a tool isn't configured in the project, **provision it before giving up** —
 
 **Run the code where the risk is dynamic — don't assess it by reading alone.** Linters won't catch a broken LLM/agent retry loop, an async ordering bug, or a runtime crash on a path the tests skip. For the riskiest runtime logic — agent/LLM orchestration, background jobs, anything with no test around it — exercise it: mock the model or external call, replay a fixture, or run the one path in a REPL. "Assessed by reading only, no API key" is the most common way a review misses the real bug. If you truly can't run it, say so loudly in the report rather than implying you verified it.
 
+**Runtime tools — enable when the change touches concurrency, memory, async, or non-determinism.** Static linters miss races, leaks, and undefined behavior. When the diff touches those areas, run the relevant runtime tool alongside the test suite:
+
+- **Go** — `go test -race ./...` whenever the change touches goroutines, channels, shared maps, or sync primitives. Mandatory, not optional.
+- **C/C++** — rebuild with `-fsanitize=address` for memory bugs, `-fsanitize=thread` for races, `-fsanitize=undefined` for UB. Run the tests; sanitizer output is a finding.
+- **Rust** — `cargo miri test` when the change adds or modifies `unsafe`. The borrow checker covers the rest at compile time.
+- **Python** — `tracemalloc` for memory growth in long-lived processes; `asyncio.get_event_loop().set_debug(True)` (or `PYTHONASYNCIODEBUG=1`) for async ordering bugs.
+- **JS/TS** — heap snapshots in Node DevTools when the change touches long-lived caches, closures, or event listeners.
+
+If the diff doesn't plausibly touch any of these surfaces, skip. The point is to reach for the right tool when the change shape calls for it, not to run every sanitizer on every diff. For deeper bug-shape coverage, see `bug-hunter`'s "Reach for the right runtime tool" section.
+
 ### Step 3 — Read the change as a whole
 
 Before line-level nitpicking, step back. Most reviewers (human and AI) never do this, and it's where the highest-value findings hide.
