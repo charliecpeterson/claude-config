@@ -147,10 +147,10 @@ in the diff.
 - [x] **P1** Business-logic category 19: payment / coupon / refund,
   workflow step skipping, race-on-balance, signed-message replay,
   state-machine bypass, mass assignment.
-- [ ] **P1** Multi-tenant data isolation. Covered indirectly in
-  category 1 (trust boundaries) and category 18 (auth matrix), but a
-  standalone bullet for "every tenant-scoped query carries tenant_id"
-  would sharpen it. Deferred — current coverage is adequate.
+- [x] **P1** Multi-tenant data isolation now an explicit bullet in
+  category 18 (auth matrix): "every tenant-scoped query includes
+  tenant_id in the WHERE/filter clause," with a note about
+  middleware-enforced-everywhere-except-one-new-query failure mode.
 - [x] **P1** Category 22: AI-generated code red flags. Tell-tale
   shapes + extra checks for input handling, swallowed errors, ad-hoc
   authz, duplicate helpers, happy-path-only tests.
@@ -194,10 +194,14 @@ in the diff.
   required in Step 6 of SKILL.md.
 - [x] **P0** Every dep CVE gets `reachable: yes/no/unknown` tag
   (enforced in Step 3 + restated in Step 6).
-- [ ] **P1** Machine-readable output toggle (SARIF or JSON alongside
-  markdown) so CI can parse and the skill composes with other tools.
-- [ ] **P1** Patch suggestions as diffs, including for dep bumps
-  (`requests: 2.19.1 → 2.32.4 in requirements.txt:14`).
+- [x] **P1** Machine-readable output toggle documented in SKILL.md
+  Step 6 and report-template.md. SARIF 2.1.0 for `--sarif` mode, flat
+  JSON finding list for `--json` mode, alongside the markdown report.
+  Required field set documented for the JSON path.
+- [x] **P1** Patch suggestions as diffs. The MCP's
+  `latest_safe_version` returns the concrete upgrade target and which
+  advisories it clears; report-template.md now renders dep bumps as
+  `package X.Y.Z to A.B.C in requirements.txt:14` per row.
 - [ ] **P2** PR-comment mode (post each finding as inline GitHub PR
   review comment via `gh api`).
 

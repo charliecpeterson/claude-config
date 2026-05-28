@@ -199,6 +199,7 @@ Then ask, for each row:
 - [ ] Would an anonymous caller get a useful error message that leaks the resource's existence? (IDOR-with-info-leak)
 - [ ] Is `lesser_role_result` what you actually want, or are you relying on UI hiding the button?
 - [ ] If this is a write, is it idempotent or transactional under retry / replay?
+- [ ] **Multi-tenant**: does every tenant-scoped query include `tenant_id` (or equivalent) in the `WHERE`/`filter` clause? Cross-tenant data leaks happen when this is enforced in middleware "everywhere" but missed on one new query.
 
 IDOR lives in the gap between what the app accepts and what it should allow. Scanners do not catch IDOR. Walk this table or you will miss it.
 
