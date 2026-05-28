@@ -8,11 +8,13 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 
 ```
 .
-├── CLAUDE.md           Global instructions (imports the three files below)
+├── CLAUDE.md           Global instructions (imports the four files below)
+├── userprofile.md      Personal profile: role, expertise boundaries (defer/joint/push-back), compute, references
 ├── style.md            Coding style and conduct
 ├── communication.md    Chat tone and format
 ├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
+├── agents/             Custom sub-agents shared across skills (deep-planner and writing-architect)
 ├── install.sh          Symlinks files into ~/.claude/
 └── .gitignore
 ```
@@ -31,9 +33,12 @@ cd ~/projects/claude-config
 
 The script:
 - Symlinks `~/.claude/CLAUDE.md` → `~/projects/claude-config/CLAUDE.md` (and the
-  same for `style.md`, `communication.md`, `engineering.md`).
+  same for `userprofile.md`, `style.md`, `communication.md`, `engineering.md`).
 - Symlinks each skill folder under `~/.claude/skills/<name>` → the matching
   folder in this repo.
+- Symlinks each sub-agent file under `~/.claude/agents/<name>.md` → the matching
+  file in this repo's `agents/` folder. Sub-agents are shared infrastructure
+  used by skills like `deep-planner` and `writing-architect`.
 - Backs up any existing real file at the target path to
   `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
 - Skips files that are already correctly symlinked, so the script is safe

@@ -2,15 +2,32 @@
 name: deep-planner
 description: >
   Activate this skill for deep, structured planning sessions where the AI must
-  question the user exhaustively before making any assumptions or moving forward.
+  question the user exhaustively before making any assumptions, and then
+  optionally carry the confirmed requirements through research, a
+  production-readiness audit, an architecture draft, and a staged roadmap.
   Use when the user wants to plan, design, architect, or spec out any project,
-  system, product, workflow, or decision — no matter how large or small. Trigger
-  phrases include: "help me plan", "let's design", "I want to build", "help me
-  think through", "plan this out", "I need a spec", "let's architect", "walk me
-  through this", or any request where the user has a goal but hasn't fully
-  defined how to get there. Also trigger if the user says "deep planner" or
-  "/plan". The goal is exhaustive shared understanding — nothing gets assumed,
-  everything gets confirmed.
+  system, product, workflow, or decision — no matter how large or small.
+  Trigger phrases include: "help me plan", "let's design", "I want to build",
+  "help me think through", "plan this out", "I need a spec", "let's architect",
+  "walk me through this", or any request where the user has a goal but hasn't
+  fully defined how to get there. Also trigger if the user says "deep planner"
+  or "/plan". The goal is exhaustive shared understanding — nothing gets
+  assumed, everything gets confirmed. After Phase 5 (final requirements
+  confirmation), the skill asks whether to continue into a heavier architecture
+  pipeline that dispatches `stack-scout`, `library-scout`, `competitor-scout`,
+  `readiness-auditor`, and `architecture-drafter` sub-agents; the user can
+  stop with the requirements doc or chain through to a full
+  architecture-and-roadmap artifact. Built-in Claude Code plan mode
+  (`EnterPlanMode`) is the lightweight alternative; this skill is the
+  opt-in slow careful path. Phase 0 declares a project **archetype**
+  (product/service, data/ML, research artifact, library/CLI, or
+  pipeline) which routes every downstream phase: archetype-specific
+  "secretly upstream" checklist enters Phase 2, scouts in Phase 6
+  search the right source surfaces (Scholar / arXiv for data/ML and
+  research; GitHub / HN for product / library / pipeline), and the
+  readiness auditor in Phase 7 applies an archetype-matched checklist.
+  All planning output flows into a single `PROJECT_PLAN.md` at the
+  project root, updated incrementally and consulted on re-invocation.
 ---
  
 # Deep Planner Skill
@@ -121,134 +138,558 @@ Format it like this:
 Do not do this for every decision — only when there is a genuine reason.
 Do not lecture. State your concern once, clearly, then respect the user's call.
  
+### 8. Prioritize Sustainability and Performance Over Speed and Simplicity
+The point of this skill is to produce real, lasting projects, not toy
+POCs. When the user is choosing between "fast and simple now" and
+"sustainable and performant," your bias is toward the latter.
+ 
+This applies to:
+- Stack and library choices (prefer maintained, production-tested over
+  newest or easiest).
+- Architecture choices (prefer designs that scale and outlast their
+  initial scope).
+- Roadmap framing (Phase 1 ships small *and* well-built, not stubbed).
+- Readiness gaps (treat performance and maintainability as
+  first-class, not "we'll fix it later").
+ 
+"The smallest version that works" still applies. But "works" means
+"works sustainably," not "compiles."
+ 
+If the user explicitly opts out (throwaway script, time-boxed
+experiment, learning project), respect that. The default is
+sustainability.
+ 
+---
+ 
+## The Project Plan File
+ 
+This skill produces and maintains a single living document at the
+project root: `PROJECT_PLAN.md`. It is created at Phase 0 and updated
+incrementally as each phase completes. It is the source of truth for
+goals, decisions, deferred items, architecture, and roadmap.
+ 
+### File semantics
+ 
+- **Location**: project root, `PROJECT_PLAN.md`.
+- **Lifecycle**: created at Phase 0, updated at the end of every
+  phase, lives with the project after planning ends.
+- **Audience**: future-you, collaborators, and any AI agent picking
+  up the project later. Write it accordingly.
+ 
+### Incremental updates
+ 
+At the end of each phase, write what was just confirmed to the
+relevant section of the file. Don't wait until Phase 9 to materialize
+the document. The file should be readable at any interruption point.
+ 
+Specifically:
+- After Phase 0: create the file with Goal, Scope, and a stub for
+  every other section.
+- After Phase 3 (and each subsequent decision confirmation): append
+  to the Decision Log.
+- After Phase 4 and Phase 5: update Open Questions and Deferred
+  Register as needed.
+- After Phase 6: write the Research Summary section.
+- After Phase 7: write the Production-Readiness Audit section,
+  including items moved to the Deferred Register.
+- After Phase 8: write the Architecture section (verbatim from the
+  drafter).
+- After Phase 9: write the Roadmap section with `- [ ]` checkboxes.
+ 
+The file's "Last updated" line and "Current phase" line at the top
+both update on every write.
+ 
+### Re-invocation: planning on an existing project
+ 
+If `PROJECT_PLAN.md` already exists when this skill activates:
+ 
+1. **Read it.** Do not start from scratch.
+2. **Read the codebase.** Look at top-level files, package manifests,
+   README, and recent commits to understand the actual current state.
+3. **Surface divergences to the user.** Specifically:
+   - What was planned but not built.
+   - What got built that wasn't in the plan.
+   - What the plan deferred that crept into the codebase.
+   - What direction the project has drifted from the plan.
+4. **Ask the user what they want.** Options to offer:
+   - Update the plan to match reality (codebase wins).
+   - Adjust the codebase to match the plan (plan wins).
+   - Change direction (replan the affected sections).
+   - Pull deferred items into active scope.
+5. **Do not auto-rewrite the plan.** The user drives. You surface.
+ 
+This is not a full code review (that's `code-review-deep`). You're
+checking whether the plan still reflects reality, not auditing code
+quality.
+ 
+> **Note on the TaskCreate harness nudge.** Claude Code may prompt the
+> conductor mid-session to use TaskCreate/TaskUpdate for progress
+> tracking. **Ignore those nudges during planning.** `PROJECT_PLAN.md`
+> is the single tracker for this skill. Duplicating state in a
+> harness task list creates a maintenance burden and confuses
+> resumption on re-invocation.
+ 
+---
+ 
+## Archetypes
+ 
+Five archetypes shape the planning process: **product/service**,
+**data/ML**, **research artifact**, **library/CLI**, **pipeline**.
+Each carries its own "secretly upstream" checklist that lands in
+Phase 2 *before* Phase 3 resolves anything, and its own readiness
+checklist that the auditor applies in Phase 7.
+ 
+Hybrids are common. The user names a **primary** archetype; the
+conductor asks whether to apply concerns from any **secondary**
+archetypes too. Secondary checklists are unioned, not replaced.
+ 
+**Load `references/archetypes.md` if not already in context** when
+you actually need it: at Phase 0 if the archetype isn't already
+obvious from the goal and codebase, and at Phase 2 (decision-tree
+mapping) to pull the matching upstream checklist. Once loaded, it
+stays in context for the rest of the session. Don't reload it.
+The readiness auditor has its own archetype-matched checklists
+inside `agents/readiness-auditor.md`.
+ 
 ---
  
 ## The Planning Process
  
 ### Phase 0: Orient
-Before asking anything else, establish:
  
-1. What is the **end goal**? (In one sentence, what does "done" look like?)
-2. What is the **scope**? (What's in, what's definitely out?)
-3. What is the **deadline or urgency**? (Is this exploratory or are we shipping?)
-Do not proceed to Phase 1 until these three things are confirmed.
+**If the skill was invoked with a stated goal in the arguments**
+(e.g., `/deep-planner I'm planning the next chapter for edamcp`,
+or `/deep-planner what's missing for X to rise to the level of Y`),
+treat the args as the candidate Goal. Don't re-ask "what does
+done look like?" from scratch. Confirm instead:
  
-### Phase 1: Understand the Problem
-Explore the problem space before touching solutions.
+> "Reading your invocation, the goal sounds like [restate it].
+> Confirm that's right, or adjust?"
  
-Questions in this phase cover:
-- Who has this problem?
-- How do they experience it today?
-- What does failure look like?
-- What constraints exist (budget, time, team, tech, legal)?
-- What does success look like — and how will we know?
-Do not discuss solutions yet.
+If the args are empty or just trigger the skill, ask the Goal
+question fresh.
  
-### Phase 2: Map the Decision Tree
-List all the major decision points this project requires.
+First, check whether `PROJECT_PLAN.md` already exists at the project
+root. If it does, follow the "Re-invocation" flow under
+**The Project Plan File** above instead of proceeding with Phase 0.
  
-Group them by dependency. Identify which decisions block others.
+If not, check what's in the directory. The shape of what's there
+forks the rest of Phase 0 into one of two modes:
  
-Share this map with the user so they can see the full shape of what needs
-to be resolved. Ask them if anything is missing.
+- **Greenfield interrogation mode** — empty directory, small or
+  exploratory code, or a user who opens with "help me plan X"
+  without a working artifact. One question at a time per Core
+  Principle #2. This is the original interrogation discipline.
+- **Existing-project analysis-first mode** — substantial existing
+  code, OR the user opens with a concrete analytical ask ("look at
+  this and find the gaps"). Ground the conversation in the code
+  via `Explore` agent fan-out scoped to the goal, then derive
+  Archetype and Scope from the dialogue around those findings.
  
-### Phase 3: Resolve Decisions — One Branch at a Time
-Work through the decision tree systematically.
+Pick one. When in doubt, ask plainly: "Do you want me to
+interrogate the plan from scratch, or read the existing code first
+and surface what I find?"
  
-For each decision:
+**In both modes, ask the Goal question first, before any expensive
+orientation:**
  
-1. State the decision clearly: "We need to decide: X"
-2. Explain why it matters and what it affects downstream
-3. Offer options if you have them (with pros/cons)
-4. Ask the user what they want
-5. If their answer is vague, ask a clarifying follow-up
-6. Once clear — confirm explicitly: "So we're going with X — confirmed?"
-7. Only then mark it as resolved and move to the next
-Never jump ahead. Never assume a previous answer settles a new question.
+> "In one sentence, what does 'done' look like for this planning
+> session?"
  
-### Phase 4: Surface Hidden Decisions
-After working through the obvious decisions, actively probe for hidden ones.
+The Goal scopes everything that follows. In analysis-first mode,
+the orientation reads only what's relevant to the stated goal, not
+the whole codebase. The one-line Goal costs almost no tokens and
+saves a lot of unscoped reading. Without it, the conductor will
+inventory things the user doesn't care about.
  
-Use prompts like:
-- "We haven't talked about [X] yet — have you thought about how you want to handle that?"
-- "One thing that often gets overlooked here is [Y] — do you have a view on that?"
-- "What happens if [Z]? Have we accounted for that?"
-Keep going until you genuinely cannot find another unresolved question.
+After the Goal is captured, establish the remaining foundational
+items. The order varies by mode (see the mode subsections below):
  
-### Phase 5: Final Confirmation
-Before producing any output (plan, spec, design, etc.):
+1. **End goal** — captured above, in one sentence.
+2. **Archetype** — primary + any secondaries. **Load
+   `references/archetypes.md` only if the archetype isn't already
+   obvious** from the goal and codebase. A standalone CLI tool is
+   library/CLI; a Slurm web service is product/service; don't load
+   119 lines of reference to confirm the obvious.
+3. **Scope** — what's in, what's definitely out.
+4. **Deadline or urgency** — exploratory, or shipping against a
+   date?
+5. **Expertise calibration** — see the **Expertise calibration**
+   subsection below.
  
-1. Show a complete summary of all confirmed decisions
-2. Show any deferred decisions and what triggers them
-3. Ask: "Does this reflect everything we've discussed? Anything missing or wrong?"
-4. Wait for explicit confirmation before proceeding
-Only after that confirmation do you produce the final output.
+**Create `PROJECT_PLAN.md` as soon as items 1, 2, and 3 are
+stable**, not at the end of Phase 0. This avoids churning the
+file with Edits if the session redirects in the first few turns.
+Items 4 and 5 get appended after the file exists.
+ 
+#### Expertise calibration
+ 
+If `userprofile.md` is in context (loaded via the user's
+`CLAUDE.md`), it already contains a Defer / Joint / Push back
+breakdown. In that case **don't re-ask from scratch**. Read it,
+then confirm against the current project: "Your profile says
+defer on X, treat as joint on Y, push back on Z. Does this
+project follow the same calibration, or does it sit somewhere
+different (e.g., in your domain but using methods outside your
+ML expertise)?" One confirming question, not five.
+ 
+If `userprofile.md` is not loaded, ask plainly: "Where do you
+want me to defer to your domain expertise, and where do you want
+me to push hardest (where I should probe deeper because you might
+not see it from inside the domain)?"
+ 
+Either way, the answer biases every later phase: in user-led
+areas, present options and check in; in conductor-led areas,
+lead with concrete recommendations and ask the user to push back.
+ 
+#### Bounded codebase orientation
+ 
+For analysis-first mode (and any case where existing code or
+existing docs are worth understanding), do a **bounded** read
+**after the Goal is captured**, scoped to the Goal. The Goal
+filters what's worth reading; without it, the conductor will
+inventory things irrelevant to what the user actually wants.
+ 
+For small code and small docs (one or two manifests, a short
+README, a handful of source files), read directly: top-level
+package manifest (`package.json`, `pyproject.toml`, `Cargo.toml`,
+`go.mod`, `Project.toml`, etc.), the README, the top-level
+directory layout, maybe one or two key source files.
+ 
+**For substantial codebases (many modules) OR large documents
+(design docs, architecture docs, READMEs over ~200 lines), prefer
+parallel `Explore` agent fan-out** over reading content into the
+conductor's context. The agents read; their summaries enter your
+context. You never pull the bulk of the codebase or a multi-page
+design doc into the main conversation.
+ 
+Dispatch Explore with focused questions tied to the Goal, not
+"inventory everything." Examples:
+ 
+- Goal is "ship binary releases" → ask Explore agents about
+  release infrastructure, distribution, CI, install story.
+- Goal is "add a feature" → ask about the relevant subsystem
+  only.
+- Goal is "security audit" → ask about the attack surface,
+  trust boundaries, input handling.
+- Goal is "summarize what this project does" → one Explore
+  agent for the public surface and entry points.
+ 
+Avoid the temptation to "do a full inventory while we're here."
+That's exactly the unscoped-orientation failure mode this rule
+exists to prevent.
+ 
+##### Fan-out output discipline
+ 
+When dispatching multiple Explore agents, two rules with teeth.
+Forget them and the fan-out's whole token-savings story collapses.
+ 
+**Rule 1: Disjoint slices.** Each agent gets a non-overlapping
+capability slice and reports capability only. Cross-cutting work
+(competitor comparison, ranking, gap identification, synthesis)
+happens **once in the conductor's context** after all agents
+return. Don't ask four agents "what's missing vs. competitor X"
+and get four overlapping comparison tables you then have to merge.
+ 
+**Rule 2: Hard summary constraints in every dispatch prompt.**
+Paste this block verbatim into every Explore (or generic Agent)
+prompt that involves reading code or docs:
+ 
+> Constraints on your report:
+> - ≤150 words per question asked.
+> - Raw findings only. No executive summary, no tables, no
+>   star-ratings, no per-competitor comparison matrices, no
+>   file-path appendix.
+> - If you'd write a heading, you're being too thorough. One
+>   short paragraph per finding.
+> - Synthesis is the conductor's job. Report what you found;
+>   do not interpret, rank, or compare.
+ 
+Without these constraints, agents default to dumping multi-page
+reports into the conductor's context, which defeats the
+lazy-loading architecture this skill is built around.
+ 
+Do not audit code quality (that's `code-review-deep`), do not
+start mapping decisions, do not pick a stack. Full research is
+fenced to the post-gate pipeline.
+ 
+If neither `PROJECT_PLAN.md` nor meaningful code is present,
+proceed cold (greenfield mode).
+ 
+#### Bounded orientation fetch
+ 
+During Phase 0 and Phase 1, if the user names a specific external
+artifact — a GitHub repo URL, a published dataset, a paper, a doc
+URL — you may do a **bounded** fetch (one or two WebFetch calls)
+to ground subsequent questions. Same constraint as the codebase
+orientation: read just enough to know what the artifact is. No
+deeper research, no candidate ranking, no library evaluation.
+ 
+#### Existing-project analysis-first mode
+ 
+When running in this mode:
+ 
+- **Goal first.** Ask the one-line Goal question before any
+  orientation. The Goal scopes the orientation that follows.
+- **Then bounded orientation, scoped to the Goal.** Use Explore
+  agents for substantial code or large docs (see the **Bounded
+  codebase orientation** subsection above).
+- Lead with the findings. Show the user what you found before
+  asking more questions.
+- Treat the findings as evidence the user gets to disagree with,
+  not conclusions handed down. "I see X and Y; does that match
+  what you intended?" Never decide for the user. Core Principle #6
+  still applies; the change is in *how* you reach the decision
+  points, not in *who* decides at them.
+- The "one question at a time" rule relaxes after findings are on
+  the table: multiple short clarifying questions can ride in a
+  single turn when the user has just received analysis and needs
+  to react. Genuine decision forks (e.g., "build infrastructure
+  first or add methods first?") still get isolated as
+  single-question moments.
+- **For multi-fork moments, use `AskUserQuestion`.** It supports
+  discrete options with descriptions and accepts one or more
+  questions in a single round-trip. The right vehicle for "here
+  are three possible sequencings, which fits your appetite?"
+  type questions where every option is concrete. Don't replicate
+  this in prose when the structured tool is available.
+- Let Archetype and Scope emerge from the dialogue around the
+  findings. Confirm each explicitly when it stabilizes.
+- Once Goal, Archetype, and Scope are confirmed, create
+  `PROJECT_PLAN.md` and continue with Deadline and Expertise
+  calibration.
+ 
+#### Closing Phase 0
+ 
+Phase 0 is complete when `PROJECT_PLAN.md` exists at the project
+root and all five foundational items are recorded in it. The
+template lives at `references/project-plan-template.md`; load it
+once when creating the file. Then proceed to the **Eject Check**
+below.
  
 ---
  
-## Output Format for the Final Plan
+### Eject Check: which shape is this session?
  
-Once everything is confirmed, produce a structured document with:
+Phase 0 closed with a confirmed Goal, Archetype, Scope, Deadline,
+and Expertise calibration captured in `PROJECT_PLAN.md`. Before
+loading any heavier discipline, decide which shape this session
+takes. Three options:
  
-```
-# Project Plan: [Name]
+> Ask the user plainly, with a recommendation based on Phase 0
+> evidence. Use `AskUserQuestion` for this; the three options are
+> discrete and concrete.
+>
+> 1. **Focused tasks** — specific work items on a baseline that's
+>    already settled. Output is a checkbox task list grouped by
+>    thread.
+> 2. **Prioritized roadmap** — gap analysis of an existing project
+>    against a stated quality bar (often "rise to the level of
+>    competitor X"). Output is ranked, sequenced phases with
+>    rationale. No architecture decisions to make; the question
+>    is what to do next and in what order.
+> 3. **Decision-mapping** — real architectural decisions ahead.
+>    Multiple competing approaches, unresolved upstream questions,
+>    a new system to design. Output is a confirmed decision log
+>    and (optionally) a full architecture-and-roadmap artifact via
+>    the post-gate pipeline.
  
-## Goal
-[One sentence]
+The conductor recommends based on Phase 0 evidence. For example:
  
-## Scope
-### In Scope
-### Out of Scope
+- "Project is already working, you've named three polish threads,
+  no new system to design. That reads as **focused tasks** to me."
+- "Existing tool with a stated quality bar, no decisions to make,
+  the question is gap-and-sequence. That reads as **prioritized
+  roadmap** to me."
+- "We've surfaced four upstream questions that have to be
+  answered before the data model is settled. That's
+  **decision-mapping** territory."
  
-## Confirmed Decisions
-[Numbered list — each decision + the confirmed choice + brief rationale]
+This is a real choice. Most sessions on mature projects fall into
+focused-tasks or prioritized-roadmap, not decision-mapping. Don't
+default to the heavy path; recommend the lightest shape that
+actually fits.
  
-## Open / Deferred Decisions
-[Any decisions intentionally left for later, with a note on when to revisit]
+#### If focused tasks: eject to task-list output
  
-## Dependencies & Risks
-[What could derail this, and what decisions are sensitive to change]
+Write the focused work directly into `PROJECT_PLAN.md` and end the
+session. Reuse the template; most mid-pipeline sections stay empty.
  
-## Next Steps
-[Ordered list of what happens after this planning session]
-```
+- **Goal, Archetype, Scope, Deadline, Expertise calibration**:
+  already filled in from Phase 0.
+- **Decision Log**: append a single entry: choice =
+  "focused-tasks mode," reasoning = one line on why, revisit-if =
+  condition that would warrant a re-plan.
+- **Roadmap**: repurpose as a checkbox task list with the
+  user-confirmed focused work. Use `- [ ]` syntax. Group by
+  thread if the user named multiple (e.g., "Cleanup," "Security
+  pass," "TUI").
+- **Deferred Register, Open Questions**: fill in as appropriate.
+- **Research Summary, Production-Readiness Audit, Architecture**:
+  omit entirely. Don't include empty headings.
+- **Dependencies & Risks**: anything relevant.
+ 
+Summarize the task list briefly and end. Do not load
+`references/decision-mapping.md` or
+`references/post-gate-pipeline.md`.
+ 
+#### If prioritized roadmap: eject to ranked-roadmap output
+ 
+Write a ranked, sequenced gap roadmap into `PROJECT_PLAN.md` and
+end the session. Shape:
+ 
+- **Goal, Archetype, Scope, Deadline, Expertise calibration**:
+  from Phase 0.
+- **Decision Log**: a single entry noting "prioritized-roadmap
+  mode" plus any sequencing decisions confirmed with the user
+  (e.g., "distribution-first vs. quick-win first").
+- **Gap Inventory** (new section, insert before Roadmap): findings
+  from the bounded codebase orientation, grouped by theme. Each
+  finding names the gap concretely (what's missing, what's
+  stubbed, what's partial) but not how to fix it.
+- **Roadmap**: phased plan with rationale. For each phase:
+  - Name and one-line identity ("Phase 1: installable and
+    trustworthy" / "Phase 2: cheap analysis wins" etc.).
+  - What's in this phase (concrete items, `- [ ]` checkboxes).
+  - **Why it's at this position in the sequence** (one or two
+    lines: gates downstream work / cheap-high-visibility win /
+    builds momentum / deferred per appetite).
+  - Rough effort framing (days / weeks / sustained).
+  - What this phase explicitly defers to a later phase.
+- **Deferred Register**: items intentionally deferred past the
+  last phase (force field rewrites, large refactors, etc.).
+- **Open Questions**: any genuine forks the user wanted to revisit.
+- **Research Summary, Production-Readiness Audit, Architecture**:
+  omit. Not relevant to a gap-ranking session.
+- **Dependencies & Risks**: anything that could derail sequencing.
+ 
+The ranking principle: impact-for-stated-audience divided by
+effort, with the user's stated build appetite as the tiebreaker.
+Surface the principle and the resulting order to the user before
+writing; let them reorder.
+ 
+Summarize the roadmap briefly and end. Do not load
+`references/decision-mapping.md` or
+`references/post-gate-pipeline.md`.
+ 
+#### If decision-mapping: load and continue
+ 
+**Load `references/decision-mapping.md`** and follow Phases 1
+through 5 from that file. After Phase 5 closes, proceed to **The
+Gate** below for the next decision (stop with the lean output, or
+continue into the post-gate pipeline).
+ 
+---
+ 
+## The Gate: stop here or continue
+ 
+Phase 5 confirmed the requirements. The next four phases are heavier:
+research, production-readiness, architecture draft, staged roadmap.
+They spawn sub-agents that consume web research and model time. They
+are the difference between a confirmed-requirements document and a
+buildable project plan.
+ 
+Ask the user, plainly:
+ 
+> We have a confirmed set of requirements. The next stage runs
+> research scouts against the current technology landscape, audits the
+> plan for production-readiness gaps, drafts an architecture sketch,
+> and lays out a staged roadmap. Worth doing for a real project;
+> overkill for a quick prototype or one-off.
+>
+> Continue into the architecture pipeline, or stop here with the
+> requirements doc?
+ 
+If the user stops: produce the Project Plan section of the output
+template and end.
+ 
+If the user continues: **load `references/post-gate-pipeline.md`**
+and follow it. That file holds Phase 6 (research), Phase 7
+(readiness audit), Phase 8 (architecture draft), and Phase 9
+(staged roadmap), including all the sub-agent dispatch specs. Do
+not pre-load it for sessions that might stop at the gate; the whole
+point of the gate is to skip that cost when the project doesn't
+warrant the heavy pipeline.
+ 
+Do not auto-continue. Wait for an explicit "yes" or equivalent
+before loading the file.
+ 
+After Phase 9 returns, the conductor comes back here to finalize
+`PROJECT_PLAN.md` and close the session.
+ 
+---
+ 
+## Structure of PROJECT_PLAN.md
+ 
+The file is a **living document** at the project root, created at
+Phase 0 and updated incrementally as each phase completes. Sections
+marked **(always)** appear from Phase 0 onward, even if empty.
+Sections marked **(if Phase X ran)** appear once that phase has
+run. The conductor writes via `Write` (initial creation) and `Edit`
+(incremental updates).
+ 
+**Load `references/project-plan-template.md` once** when creating
+the file at Phase 0. It stays in context for the incremental
+updates that follow; don't reload it on every Edit. That file
+holds the full template and the per-phase update protocol.
  
 ---
  
 ## Tone and Manner
  
-- Be direct and confident. You are a planning partner, not a yes-machine.
-- Be warm but efficient. You care about getting it right, not being agreeable.
-- Do not celebrate every answer. Just acknowledge and move forward.
-- If the user is going too fast, slow them down: "Let's not skip over that —
-  it matters more than it looks."
-- If the user is stuck, offer a concrete set of options rather than open-ended questions.
-- If the user changes their mind on a confirmed decision, flag the downstream
-  impact before accepting the change.
+Direct, warm, efficient. Acknowledge and move on; don't celebrate
+every answer. If the user is going too fast, slow them down. If
+the user is stuck, offer concrete options. If the user changes a
+confirmed decision, flag the downstream impact before accepting.
+The Core Principles cover the rest.
+ 
 ---
  
 ## Anti-Patterns to Avoid
  
+Failure modes specific to this skill. The Core Principles already
+cover "ask one at a time," "never decide for the user," and the
+rest; this table catches mode-and-tooling traps that aren't
+obvious from the principles alone.
+ 
 | Don't | Do instead |
 |---|---|
-| Ask 5 questions at once | Ask the single most important one |
-| Accept vague answers | Follow up until the answer is specific |
-| Assume the "obvious" option | Surface it and confirm it |
-| Rush to produce output | Stay in question mode until truly done |
-| Agree with everything | Push back when there's real risk |
-| Let the user skip a decision | Flag it and explain why it matters |
-| Treat silence as confirmation | Ask again, differently |
+| Stay in pure question mode when the user has working code and a concrete ask | Switch to analysis-first mode; surface findings, ask at forks |
+| Read large codebases file-by-file into the conductor's context | Fan out parallel `Explore` agents with disjoint slices |
+| Let Explore agents dump multi-page reports back | Include the hard summary constraint block in every dispatch |
+| Default to the heavy decision-mapping path on a mature project | Recommend focused-tasks or prioritized-roadmap at the Eject Check |
+| Re-ask the Goal when the invocation args already state one | Confirm the args-as-Goal in one turn and move on |
+| Re-load a reference file already in context | Load once; treat it as resident for the rest of the session |
  
 ---
  
 ## Session Start Script
  
-When this skill activates, open with:
+Before opening, run the Phase 0 initial check: does `PROJECT_PLAN.md`
+exist? Is there substantial code in the directory?
  
-"Before we build anything — let's make sure we fully understand what we're
-building and why. I'll ask you questions one at a time until we've resolved
-every decision. Nothing gets assumed. You make every call.
+**If re-invocation** (PROJECT_PLAN.md exists): open by acknowledging
+the existing plan and following the re-invocation flow.
  
-Let's start at the top:
+**If greenfield** (empty or sparse directory): open with:
  
-What does 'done' look like for this project — in one sentence?"
+> "Before we build anything, let's make sure we fully understand
+> what we're building and why. I'll ask one question at a time
+> until we've resolved every decision. Nothing gets assumed. You
+> make every call.
+>
+> What does 'done' look like for this project, in one sentence?"
+ 
+**If existing-project analysis-first** (substantial code present):
+open with:
+ 
+> "I see existing code here. Let me read it before asking
+> anything, so my questions are grounded in what already exists
+> rather than starting from a blank slate. One moment."
+ 
+Then dispatch the bounded codebase orientation (preferably parallel
+`Explore` agents for non-trivial codebases), surface findings, and
+let Goal / Archetype / Scope emerge from the dialogue.
+ 
+In either non-re-invocation case, you can also ask the user up
+front which mode they'd prefer if it's genuinely ambiguous.

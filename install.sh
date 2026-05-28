@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Symlink this repo's Claude Code config files into ~/.claude/ so the same
-# CLAUDE.md, style.md, communication.md, engineering.md, skills, and sub-agents
-# are active wherever the repo is cloned. Existing real files at a target path
+# CLAUDE.md, userprofile.md, style.md, communication.md, engineering.md,
+# skills, and sub-agents are active wherever the repo is cloned. Existing real
+# files at a target path
 # are backed up to ~/.claude/<name>.backup-YYYYMMDD-HHMMSS first.
 #
 # Config files and skills install non-interactively. The script then prompts,
@@ -233,7 +234,7 @@ run_check() {
   echo
 
   echo "Synced files:"
-  for name in CLAUDE.md style.md communication.md engineering.md; do
+  for name in CLAUDE.md userprofile.md style.md communication.md engineering.md; do
     local dest="$CLAUDE_DIR/$name"
     if [[ -L "$dest" ]] && [[ "$(readlink "$dest")" == "$REPO_DIR/$name" ]]; then
       echo "  ✓ $name"
@@ -364,7 +365,7 @@ echo "Target:          $CLAUDE_DIR"
 echo
 
 echo "Global config files:"
-for name in CLAUDE.md style.md communication.md engineering.md; do
+for name in CLAUDE.md userprofile.md style.md communication.md engineering.md; do
   if [[ -f "$REPO_DIR/$name" ]]; then
     link_file "$REPO_DIR/$name" "$CLAUDE_DIR/$name"
   fi
