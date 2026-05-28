@@ -386,6 +386,38 @@ Most language-level "this could be a CVE" bugs in 2026 still come from a handful
 - **Go**: `gosec`, `go vet`, `staticcheck`, plus `go test -race ./...` as a runtime check
 - **General**: `compiler` warnings with `-Werror` / `RUSTFLAGS=-Dwarnings` in CI
 
+## 24. Context-specific surfaces (when relevant)
+
+Skip whichever sub-block doesn't apply to the project. These are deep enough that they deserve walking, but narrow enough that most reviews only touch one (or none).
+
+### Mobile (iOS / Android)
+
+- [ ] **Certificate pinning** on every TLS connection to your own backend (or the framework's built-in mechanism). Pin SPKI hashes, not full certs, so rotation doesn't brick the app. Plan for pin-failure recovery so a misissued cert isn't a brick.
+- [ ] **Deep-link / universal-link validation** — `intent:` / `myapp://` / Universal Links / App Links. Sender / origin checked; URL parameters validated; no opening WebViews to attacker-supplied URLs without a same-origin check.
+- [ ] **Exported components (Android)**: every `<activity>` / `<service>` / `<receiver>` / `<provider>` with `android:exported="true"` has a permission check or is genuinely intended to be public. `<provider>` with `exported=true` and no `permission` is a classic data-leak.
+- [ ] **iOS URL schemes** registered for `LSApplicationQueriesSchemes` validated; no unconstrained `openURL:` to user-supplied schemes.
+- [ ] **Keychain / Keystore usage** — credentials in Keychain (iOS) / Keystore (Android) with appropriate access flags (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, `setUserAuthenticationRequired`), not in `UserDefaults` / `SharedPreferences`.
+- [ ] **Jailbreak / root detection** is best-effort; assume any client check can be bypassed. Never rely on it for authorization decisions.
+- [ ] **Backup exclusion** — secrets and sensitive caches excluded from iCloud / Google Drive backups.
+- [ ] **WebView hardening** — `setJavaScriptEnabled(true)` only when needed; `setAllowFileAccess(false)`, `setAllowContentAccess(false)`, `setAllowUniversalAccessFromFileURLs(false)` on Android; iOS `WKWebView` not `UIWebView`; same-origin checks on `shouldOverrideUrlLoading`.
+- [ ] **Inter-process communication**: bound services with explicit auth; intents with `setPackage(...)` to a specific recipient when sending sensitive payloads.
+
+### Cloud IAM (when Terraform / CloudFormation / Pulumi is in the diff)
+
+`checkov` catches most of this; the items below are the ones a senior reviewer still grep-spot-checks.
+
+- [ ] **No `Action: "*"` paired with `Resource: "*"`** — even in `Deny` statements (denial chains have hit production). Use specific action prefixes.
+- [ ] **Public S3 / GCS / Azure Blob** — `BlockPublicAcls`, `BlockPublicPolicy`, `IgnorePublicAcls`, `RestrictPublicBuckets` all `true` unless the bucket is *intentionally* public (and then it's a static-website bucket only, not a data bucket).
+- [ ] **OIDC trust-policy wildcards** — `repo:*/*` in a GitHub Actions OIDC `sub` condition is the workflow-injection-via-third-party-PR pattern. Pin to `repo:org/repo:ref:refs/heads/main` or similar.
+- [ ] **AssumeRole chains** — role A can assume role B can assume role C; ensure no privilege escalation along the chain (B should not be able to assume something A can't).
+- [ ] **KMS key policies** — root account `*` actions only when intentional; key administrators distinct from key users; deletion protection on customer-managed keys.
+- [ ] **Secrets Manager / Parameter Store IAM** — read access scoped per-secret, not `secretsmanager:GetSecretValue` + `Resource: "*"`.
+- [ ] **VPC security groups** — no `0.0.0.0/0` on management ports (22, 3389, 5432, 6379, 27017, 9200, ...).
+- [ ] **CloudTrail / Cloud Audit Logs** — enabled in every region, log-file validation on, log destination locked down, alerts on configuration changes to the trail itself.
+- [ ] **GuardDuty / Security Command Center / Defender for Cloud** — enabled in every account / project / subscription, findings routed to incident queue not just an inbox.
+- [ ] **Service Control Policies (AWS Org) / Org Policies (GCP)** — deny destructive actions (delete CloudTrail, disable Config, ...) at the org level, not just the account level.
+- [ ] **Cross-account roles** — `ExternalId` required for third-party trust; principal pinned to specific account/role, not `*`.
+
 ---
 
 ## Bonus: project-specific patterns

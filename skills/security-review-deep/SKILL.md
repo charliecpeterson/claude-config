@@ -1,6 +1,6 @@
 ---
 name: security-review-deep
-description: Use this skill for in-depth, scanner-grounded security audits — distinct from Claude Code's built-in lightweight `/security-review`. Trigger on "deep security review", "full security audit", "review this for vulnerabilities with scanners", "check for CVEs", "audit this PR", "scan my dependencies", "did anything new drop affecting us", or any time the user wants senior-pentester-level scrutiny that combines SAST, dependency CVE lookup, and a structured threat-model checklist. Also use proactively after the user finishes a bug fix, refactor, or feature touching authentication, authorization, input handling, file I/O, network calls, cryptography, deserialization, or dependency upgrades. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 23-category threat-model checklist (including OWASP LLM Top 10, OWASP API Top 10, IDOR / authz-matrix, business logic, AI-generated-code red flags, and memory safety for Rust / C/C++ / Go), and produces a triaged report — letting smaller models punch above their weight by grounding analysis in tool output rather than memory.
+description: Use this skill for in-depth, scanner-grounded security audits — distinct from Claude Code's built-in lightweight `/security-review`. Trigger on "deep security review", "full security audit", "review this for vulnerabilities with scanners", "check for CVEs", "audit this PR", "scan my dependencies", "did anything new drop affecting us", or any time the user wants senior-pentester-level scrutiny that combines SAST, dependency CVE lookup, and a structured threat-model checklist. Also use proactively after the user finishes a bug fix, refactor, or feature touching authentication, authorization, input handling, file I/O, network calls, cryptography, deserialization, or dependency upgrades. Runs the right scanners (semgrep, osv-scanner, trivy, gitleaks, bandit), queries live CVE data via MCP, applies a 24-category threat-model checklist (including OWASP LLM Top 10, OWASP API Top 10, IDOR / authz-matrix, business logic, AI-generated-code red flags, memory safety for Rust / C/C++ / Go, and context-specific surfaces like mobile and cloud IAM when present), and produces a triaged report — letting smaller models punch above their weight by grounding analysis in tool output rather than memory.
 ---
 
 # Security Review
@@ -130,7 +130,22 @@ cppcheck --enable=warning,performance,portability \
 clang-tidy <c-paths> \
     -checks='clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*' \
     > "$WORKDIR/clang-tidy.txt"
+
+# .NET (*.cs, *.csproj, *.sln) — Roslyn-based security analyzer
+security-scan <solution.sln> --export="$WORKDIR/security-code-scan.sarif"
+
+# PHP (*.php, composer.json) — taint-mode (psalm) catches injection
+# across function boundaries; psalm taint is currently the strongest
+# free PHP SAST.
+vendor/bin/psalm --taint-analysis --report="$WORKDIR/psalm.sarif"
 ```
+
+Scanner alternatives worth knowing about:
+
+- **Opengrep** (Jan 2025 community fork of Semgrep CE) is a drop-in
+  replacement if Semgrep's licensing changes bite. Same rule format,
+  same JSON / SARIF output, same `--config=p/...` packs work. Swap
+  the binary name if you need to.
 
 #### CI / build / infra surface (gate by file presence)
 
@@ -148,6 +163,13 @@ hadolint --format=json $(find . -name 'Dockerfile*' -not -path '*/node_modules/*
 # Bicep, Serverless. Checkov is the broadest open-source IaC scanner in
 # 2026 (tfsec is deprecated, terrascan is archived).
 checkov -d . --framework all -o json -s --skip-path node_modules > "$WORKDIR/checkov.json"
+
+# Kubernetes manifest quality (k8s/, helm/, *.yaml with `kind:`). Checkov
+# catches policy violations; kube-score catches operational misses
+# (resource limits, readiness probes, security contexts) the policy
+# scanners miss. Optional layer; run if K8s manifests are present.
+kube-score score $(find . -path '*/k8s/*.yaml' -o -path '*/helm/*.yaml') \
+            --output-format json > "$WORKDIR/kube-score.json"
 
 # SBOM + cross-check vuln scanning (independent of OSV; surfaces
 # advisories OSV occasionally misses, and produces an artifact you can
@@ -191,6 +213,51 @@ PREV=".security-reviews/last.json"
 
 For each of these, omit gracefully if the tool isn't installed or the
 artifact doesn't exist; record in the run summary.
+
+#### Heavier passes for a schedule (CodeQL)
+
+Some scanners are too slow for per-PR but worth running nightly or
+weekly. CodeQL is the canonical example: database-backed semantic
+analysis with interprocedural taint tracking that catches injection
+across function boundaries semgrep / bandit miss. Build time is
+minutes to 30+ minutes for large repos, so it does not belong in
+the fast path.
+
+Recommended pattern: run CodeQL in a scheduled GitHub Actions job
+(free for public repos via Code Scanning; paid for private). Persist
+the SARIF artifact to a known path, and let the next per-PR review
+ingest it as a "last full-pass" finding set.
+
+```yaml
+# .github/workflows/codeql.yml (excerpt)
+on:
+  schedule: [{cron: "17 4 * * *"}]   # daily 04:17 UTC
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions: {contents: read, security-events: write}
+    strategy:
+      matrix:
+        language: [python, javascript, go]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: {languages: '${{ matrix.language }}', queries: security-extended}
+      - uses: github/codeql-action/analyze@v3
+        with: {output: codeql-results}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codeql-${{ matrix.language }}-sarif
+          path: codeql-results
+```
+
+The skill then reads `.security-reviews/codeql-latest.sarif` (or
+wherever the artifact lands) in Step 2 alongside the per-PR scanners.
+Findings get a `source: codeql, age: <days-since-job>` tag so the
+reader knows they're from the nightly pass, not the live diff.
+
+Don't try to run CodeQL inline in the per-PR skill invocation; the
+latency makes the skill unusable. Schedule it, ingest it.
 
 ### Step 3 — Pull live advisory context (MCP first, scanners as fallback)
 
@@ -280,6 +347,7 @@ Read `references/threat-checklist.md` for the full list. The top categories:
 21. **Negative space** — for each addition, ask what *wasn't* added: route missing from auth allowlist, PII field missing from log scrubber, weakened control in the deletion side of the diff, new background job using elevated creds
 22. **AI-generated code red flags** — if the diff looks AI-shaped, do an extra pass on input handling, error paths, and duplicate helpers; AI-generated code carries ~2.74x the vuln density on average. Also walk the "looks done but isn't" sub-list: validators that don't validate, tests that test nothing, dead branches, half-refactored identifiers, TODO/FIXME left in production paths, feature flags that don't kill, retry loops with no upper bound.
 23. **Memory safety and unsafe constructs** — only when Rust / C / C++ / Go is in the diff. Rust: `unsafe` blocks need `// SAFETY:` justification; no `.unwrap()` / `.expect()` / `panic!()` / `todo!()` on reachable paths; integer overflow handling explicit. C/C++: bounded buffer ops, no format-string holes, UAF / double-free / uninitialized memory, integer overflow on size arithmetic. Go: errors checked at every call site, `context.Context` propagated, no goroutine leaks, no `defer` in loops.
+24. **Context-specific surfaces (when relevant)** — Mobile (cert pinning, deep-link validation, exported components, Keychain/Keystore, WebView hardening). Cloud IAM (no `*:*`, OIDC trust-policy wildcards, AssumeRole chains, KMS key policies, VPC SGs, audit-log integrity). Skip the sub-block that doesn't apply.
 
 For each item: ✅ cleared (with brief reason), ⚠️ flagged (with file:line + explanation), or N/A.
 
@@ -491,3 +559,25 @@ Missing tools should be noted in the report's run-summary JSON (`"ran": false, "
 If a scanner errors out, capture the error verbatim, note which scanner, and continue with the others. The review is still valuable even if one tool is broken.
 
 If the diff is enormous (>2000 lines changed), tell the user up front: full review will take time, and offer to either (a) batch by directory, or (b) focus on the most sensitive files first based on filename heuristics (anything matching `auth`, `login`, `password`, `crypto`, `admin`, `payment`, `upload`, `parse`, `exec`, `*.sql`, etc.).
+
+## Tested versions
+
+The scanner versions the skill was last exercised against. Drift past these is expected and almost always fine; `install.sh --check` is the live source of truth for what's actually on the system. If a finding looks wrong, the first thing to check is whether the tool version has shifted enough that its rule IDs or output schema changed.
+
+| Tool         | Last-tested version |
+| ------------ | ------------------- |
+| semgrep      | 1.164.0             |
+| bandit       | 1.9.4               |
+| gitleaks     | 8.30.1              |
+| trufflehog   | (not installed locally; latest stable) |
+| trivy        | 0.70.0              |
+| osv-scanner  | 2.3.8               |
+| pip-audit    | 2.10.0              |
+| zizmor       | latest stable (Trail of Bits release, May 2026) |
+| hadolint     | latest stable       |
+| checkov      | latest stable       |
+| syft / grype | latest stable       |
+| njsscan      | latest stable       |
+| MCP server   | this repo, current commit |
+
+Update this table when a known-good upgrade lands, not on every release.

@@ -33,8 +33,15 @@ deviates from the plan or the scope changes.
   (3171 days dormant → flagged).
 - [x] **P1** `ghsa_get(ghsa_id)` — GHSA-specific deep lookup via REST
   `/advisories/{ghsa_id}`. Pairs with the now-honest ghsa_search.
-- [ ] **P2** `mitre_attack_lookup(technique_id)` — map findings to
-  MITRE ATT&CK. Nice for threat modeling, not load-bearing.
+- [x] **P2 (resolved-no-build)** `mitre_attack_lookup(technique_id)` —
+  declined after evaluation. MITRE ATT&CK technique IDs and their
+  descriptions are stable knowledge that the model knows from training,
+  and they update slowly. The MCP's value is grounding the LLM on data
+  it would otherwise hallucinate (CVE IDs, KEV membership, EPSS scores,
+  upgrade targets). ATT&CK doesn't share that hallucination risk, so
+  adding a tool with new upstream dependency / cache / failure modes
+  doesn't earn its cost. Models can cite ATT&CK from memory; we don't
+  need the MCP to confirm them.
 
 ## B. MCP server: bugs and rough edges
 
@@ -98,9 +105,10 @@ in the diff.
   Step 2 (manual install — requires a JVM build).
 - [x] **P1** Rust: `cargo-audit` documented in Step 2; install.sh
   prints `cargo install cargo-audit` hint. `cargo-geiger` deferred.
-- [ ] **P1** .NET: `security-code-scan` — not added; uncommon in this
-  setup, can add when needed.
-- [ ] **P1** PHP: `psalm` with security plugin — not added; uncommon.
+- [x] **P1** .NET: `security-code-scan` referenced in Step 2 language
+  block + install.sh hint (`dotnet tool install --global security-scan`).
+- [x] **P1** PHP: `psalm --taint-analysis` referenced in Step 2 language
+  block + install.sh hint (`composer require --dev vimeo/psalm`).
 - [x] **P2** C/C++: `flawfinder` + `cppcheck` + `clang-tidy` (with
   `clang-analyzer-security.*,clang-analyzer-core.*,bugprone-*` checks)
   now in Step 2 + install.sh. Promoted from P2 to actively wired as
@@ -116,12 +124,18 @@ in the diff.
   CI block. install.sh installs via the anchore install script.
 - [x] **P1** `trufflehog` alongside `gitleaks`. Both in Step 2
   always-on block. install.sh installs via brew.
-- [ ] **P1** `kube-score` + `kubesec` if K8s manifests present —
-  deferred. `checkov` covers most K8s misconfiguration checks already.
-- [ ] **P2** `CodeQL` on a schedule (nightly). Worth a one-line
-  reference but not part of the skill's fast-path.
-- [ ] **P2** Note Opengrep (Jan 2025 Semgrep CE fork) — informational
-  only; add to a "scanner alternatives" note when needed.
+- [x] **P1** `kube-score` referenced in Step 2 CI section as an
+  optional layer alongside checkov for K8s operational misses
+  (resource limits, readiness probes, security contexts). install.sh
+  installs via brew. `kubesec` deferred (overlaps with kube-score for
+  the operational layer and with checkov for the policy layer).
+- [x] **P2** `CodeQL` nightly playbook landed as a new SKILL.md
+  subsection ("Heavier passes for a schedule"). Includes a sample
+  GitHub Actions cron job and how the per-PR skill picks up the
+  artifact via `.security-reviews/codeql-latest.sarif`.
+- [x] **P2** Opengrep noted in SKILL.md Step 2 "Scanner alternatives"
+  callout — drop-in for Semgrep CE if licensing changes bite, same
+  rule format, same JSON / SARIF output.
 
 ## D. Checklist categories to add
 
@@ -157,11 +171,17 @@ in the diff.
 - [x] **P1** Category 22: AI-generated code red flags. Tell-tale
   shapes + extra checks for input handling, swallowed errors, ad-hoc
   authz, duplicate helpers, happy-path-only tests.
-- [ ] **P2** Mobile-specific (only if relevant): cert pinning, deep-link
-  validation, exported component permissions.
-- [ ] **P2** Cloud IAM checklist (only if IaC present, since checkov
-  covers most): wildcard `*` actions, public S3, OIDC trust wildcards,
-  KMS key policies.
+- [x] **P2** Mobile sub-block landed in new category 24
+  ("Context-specific surfaces"): cert pinning, deep-link / universal-
+  link validation, Android exported components, iOS URL schemes,
+  Keychain / Keystore access flags, jailbreak-detection caveats,
+  backup exclusion, WebView hardening (`setJavaScriptEnabled`,
+  `setAllowFileAccess`, `WKWebView` vs `UIWebView`), IPC pinning.
+- [x] **P2** Cloud IAM sub-block landed in category 24: `*:*` action
+  guards, OIDC trust-policy wildcards, AssumeRole chains, KMS key
+  policies, Secrets Manager scoping, VPC SG management-port checks,
+  CloudTrail integrity, SCPs / org policies, cross-account
+  `ExternalId` + principal pinning.
 
 ## E. Process / methodology additions
 
@@ -275,10 +295,13 @@ quirks (Rust `unsafe`, C/C++ memory, half-broken AI-generated code).
   snapshot of older copies of the same files that live at top level
   (SKILL.md, mcp_security_server.py, threat-checklist.md, etc.),
   referenced from nothing.
-- [ ] **P1** Pin scanner versions in SKILL.md examples. Pre-commit
-  config does this; SKILL.md doesn't. Deferred — versions drift fast
-  and the skill's "use what's installed" model is more durable than
-  pinning in docs.
+- [x] **P1** Pin scanner versions: soft-pin landed as a "Tested
+  versions" appendix in SKILL.md. Lists the versions the skill was
+  last exercised against (semgrep 1.164, bandit 1.9.4, gitleaks 8.30.1,
+  trivy 0.70, osv-scanner 2.3.8, ...) with an explicit note that drift
+  is expected and `install.sh --check` is the live source of truth.
+  Avoids hard-pinning every command (maintenance churn) while still
+  giving a future-self / future-reviewer a reference point.
 - [x] **P1** `install.sh` extended to cover the full Step 2 stack:
   trufflehog, zizmor, checkov, hadolint, shellcheck, njsscan, syft,
   grype installed automatically; gosec / govulncheck / brakeman /

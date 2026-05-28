@@ -188,6 +188,9 @@ install_security_tools() {
   binary_install syft syft "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin"
   binary_install grype grype "curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b ~/.local/bin"
 
+  # Optional Kubernetes manifest scanner (complements checkov)
+  binary_install kube-score kube-score "brew install kube-score (or release from https://github.com/zegl/kube-score/releases)"
+
   # Language-specific tools that need their own toolchain: only flag, don't auto-install
   for pair in \
     "gosec|go install github.com/securego/gosec/v2/cmd/gosec@latest" \
@@ -196,7 +199,9 @@ install_security_tools() {
     "brakeman|gem install brakeman" \
     "cargo-audit|cargo install cargo-audit" \
     "cargo-geiger|cargo install cargo-geiger" \
-    "clippy-driver|rustup component add clippy"
+    "clippy-driver|rustup component add clippy" \
+    "security-scan|dotnet tool install --global security-scan" \
+    "psalm|composer require --dev vimeo/psalm phpstan/phpstan ; vendor/bin/psalm --init"
   do
     cmd="${pair%%|*}"; hint="${pair##*|}"
     if command -v "$cmd" >/dev/null 2>&1; then
@@ -284,7 +289,7 @@ run_check() {
     done
     # CI / IaC / SBOM + memory-safety scanners. Missing here = the skill
     # silently skips that layer.
-    for t in zizmor checkov hadolint shellcheck njsscan syft grype flawfinder cppcheck clang-tidy; do
+    for t in zizmor checkov hadolint shellcheck njsscan syft grype flawfinder cppcheck clang-tidy kube-score; do
       if command -v "$t" >/dev/null 2>&1; then
         echo "  ✓ $t"
       else
@@ -292,7 +297,7 @@ run_check() {
       fi
     done
     # Language toolchains: only relevant if you work in that language.
-    for t in gosec govulncheck staticcheck brakeman cargo-audit cargo-geiger clippy-driver; do
+    for t in gosec govulncheck staticcheck brakeman cargo-audit cargo-geiger clippy-driver security-scan psalm; do
       if command -v "$t" >/dev/null 2>&1; then
         echo "  ✓ $t"
       fi
