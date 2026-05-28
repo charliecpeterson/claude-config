@@ -358,11 +358,43 @@ If the caller asks for CI-friendly output (or passes `--sarif` /
   Azure DevOps, generic SCA tools, and the built-in `/code-review
   --comment` machinery
 - `report.json` — flat finding list with `{file, line, rule,
-  severity, composite, reachable, confidence, source, suggested_fix}`
+  severity, composite, reachable, confidence, source, suggested_fix,
+  message, kev, epss, category}` and an optional top-level `summary`
+  string for the banner
 
 The markdown report is for humans; the sidecar is for tools. Both
 must reference the same findings; do not silently drop entries when
 serializing.
+
+#### Posting findings as PR review comments
+
+`scripts/post-findings.sh` reads `report.json` and posts one batched
+GitHub review per run, with each finding rendered as an inline comment
+at the `file:line` it points to. Severity-threshold and max-comments
+configurable; defaults are `--min-severity medium --max-comments 50`.
+
+```bash
+# Auto-detects current repo + PR via `gh`. Set WORKDIR or pass --findings.
+./scripts/post-findings.sh --dry-run            # preview without posting
+./scripts/post-findings.sh                      # post one review
+./scripts/post-findings.sh --summary-only       # banner only, no inline
+./scripts/post-findings.sh --min-severity high  # critical + high only
+```
+
+Requires `gh` (logged in) and `jq`. Use this when the skill runs in CI
+and you want findings to land on the PR rather than only in the agent's
+output. Sample CI step:
+
+```yaml
+- name: Post security findings to PR
+  if: github.event_name == 'pull_request'
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    ./skills/security-review-deep/scripts/post-findings.sh \
+        --findings "$WORKDIR/report.json" \
+        --min-severity high
+```
 
 If everything passes, the report can be three lines. If it doesn't, it can be ten pages. Length follows findings, never the other way around.
 

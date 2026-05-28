@@ -205,8 +205,12 @@ in the diff.
   `latest_safe_version` returns the concrete upgrade target and which
   advisories it clears; report-template.md now renders dep bumps as
   `package X.Y.Z to A.B.C in requirements.txt:14` per row.
-- [ ] **P2** PR-comment mode (post each finding as inline GitHub PR
-  review comment via `gh api`).
+- [x] **P2** PR-comment mode landed as `scripts/post-findings.sh`.
+  Reads the JSON sidecar, posts one batched GitHub review per run via
+  `gh api`, configurable `--min-severity` (default medium),
+  `--max-comments` (default 50), `--summary-only`, and `--dry-run`.
+  Auto-detects repo + PR. Documented in SKILL.md Step 6 + a
+  scripts/README.md describing the sidecar contract.
 
 ## H. Round 2: language depth, web pressure points, AI-slop sharpening
 
