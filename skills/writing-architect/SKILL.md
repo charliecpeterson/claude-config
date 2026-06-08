@@ -450,24 +450,50 @@ isn't right after three, the underlying problem is usually that the
 intake was wrong — incomplete audience profile, missing voice samples,
 or an unrealistic outline. Surface that and re-intake.
 
+### Producing the clean copy
+
+A working draft carries scaffolding the final document must not: `TODO`
+callouts, `[bracketed]` placeholders, intake notes, leftover
+cannot-invent reminders. Finalizing strips all of it into a clean copy,
+either a separate file (`paper-clean.md`) or, once the doc is in Word, by
+deleting the callout paragraphs in place. Do this only when the user
+calls the content done. Every placeholder must be filled or cut first: a
+clean copy with an invented value is worse than a visible `TODO`.
+
 ---
 
 ## Operating notes
 
-### Default editing surface
+### Default editing surface, and the handoff to Word
 
-Markdown, not Word. The office-mcp friction with paragraph styles,
-heading insertion, and font sizing eats time and corrupts output. Draft
-in `.md`, run all passes on `.md`, convert to `.docx` at the very end
-with pandoc:
+Markdown first, not Word. The office-mcp friction with paragraph styles,
+heading insertion, and font sizing eats time, so draft in `.md`, run
+every review pass on `.md`, and convert to `.docx` only when the content
+is settled.
+
+Convert with a reference doc when the venue dictates formatting. Grant
+applications usually mandate margins and a minimum font size (ACCESS, for
+example, requires 1-inch margins and 11pt or larger), and pandoc's
+default docx honors neither reliably. Build a reference doc once and
+reuse it:
 
 ```
-pandoc -o paper.docx paper.md
+pandoc --print-default-data-file reference.docx > reference.docx
+# set 1-inch margins (w:pgMar 1440) and the body font in reference.docx, then:
+pandoc -o paper.docx --reference-doc=reference.docx paper.md
 ```
 
-If the user insists on editing live in Word (the doc is already open
-and they want changes in it), do it, but warn them this is slower and
-more error-prone, and confirm before mid-document inserts.
+Pandoc's md-to-docx conversion also leaves artifacts worth a cleanup
+pass: thematic breaks (`---`) can render as a stray `/` line, and bullet
+lists sometimes collapse to inline `- ` markers inside one paragraph.
+Open the converted docx and fix these before handing it over.
+
+The handoff is one-directional. Once the user starts editing the `.docx`
+in Word, that file becomes the source of truth. Do not regenerate it from
+the `.md`, which would clobber their edits; read the live document (via
+the office MCP) before changing anything, edit it in place, and treat the
+`.md` as stale. If they only want light Word edits up front, warn that
+live editing is slower and confirm before mid-document inserts.
 
 ### Structured output between stages
 
