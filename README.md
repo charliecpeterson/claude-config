@@ -39,6 +39,14 @@ The script:
 - Symlinks each sub-agent file under `~/.claude/agents/<name>.md` → the matching
   file in this repo's `agents/` folder. Sub-agents are shared infrastructure
   used by skills like `deep-planner` and `writing-architect`.
+- Also exports the *portable* skills (those with no Claude-Code sub-agent or MCP
+  dependency — see `PORTABLE_SKILLS` in `install.sh`) to `~/.agents/skills/`, the
+  directory Codex, pi, and opencode read natively. Crush is pointed at the same
+  dir via `skills_paths` in `~/.config/crush/crush.json` (only if Crush is
+  already set up). The heavy skills stay Claude-only.
+- Flattens the global rules (`userprofile`/`style`/`communication`/`engineering`)
+  into `~/.codex/AGENTS.md`, since non-Claude agents don't resolve the `@imports`
+  in `CLAUDE.md`. Regenerated each run; a hand-written file is backed up once.
 - Backs up any existing real file at the target path to
   `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
 - Skips files that are already correctly symlinked, so the script is safe
