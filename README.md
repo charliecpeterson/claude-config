@@ -45,8 +45,10 @@ The script:
   dir via `skills_paths` in `~/.config/crush/crush.json` (only if Crush is
   already set up). The heavy skills stay Claude-only.
 - Flattens the global rules (`userprofile`/`style`/`communication`/`engineering`)
-  into `~/.codex/AGENTS.md`, since non-Claude agents don't resolve the `@imports`
-  in `CLAUDE.md`. Regenerated each run; a hand-written file is backed up once.
+  into `~/.codex/AGENTS.md` and `~/.config/opencode/AGENTS.md`, since those agents
+  don't resolve the `@imports` in `CLAUDE.md`. Regenerated each run; a hand-written
+  file is backed up once. (pi has no global-rules file, so it gets skills only;
+  Crush reads project-level `AGENTS.md`.)
 - Backs up any existing real file at the target path to
   `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
 - Skips files that are already correctly symlinked, so the script is safe
