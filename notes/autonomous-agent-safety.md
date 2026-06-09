@@ -4,6 +4,65 @@ Research notes, 2026-06-04. Scratch document for thinking and for a later
 `/deep-planner` session. Not a plan yet — a landscape and a recommended
 direction with sources.
 
+## Status (2026-06-09)
+
+What this doc recommended that is now implemented in the repo:
+
+- **Deterministic deny baseline** — `settings.json` is synced and carries
+  allow rules for read-only commands plus deny rules for force-push,
+  history rewrites, credential-file reads, `rm -rf` on `/` and `~`,
+  `sudo rm`, and `mkfs`. Tier-3 LLM verifier skipped, as recommended.
+- **Scratch routing** — agents write scratch to `~/scratch` (style.md),
+  not `/tmp`, which also keeps autonomous-run debris inspectable.
+- **MCPs inactive by default** — cloned to `~/mcps`, registered only
+  per-project with local scope.
+- **Egress fail-open bug: fixed upstream.** Verified against
+  code.claude.com/docs/en/sandboxing.md on 2026-06-09: an empty
+  `allowedDomains` now fails closed (no domains pre-allowed, prompt on
+  first use), and v2.1.166 made explicit `WebFetch(domain:...)` rules
+  take precedence over built-in preapproved domains. The CVE history
+  below stands as rationale for fail-closed checking, but the current
+  keys behave correctly.
+
+Ready to use per-machine (goes in `settings.local.json`, NOT synced —
+sandbox availability and the right egress list differ per machine):
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": ["github.com", "api.github.com", "pypi.org", "files.pythonhosted.org"]
+    },
+    "filesystem": {
+      "denyRead": ["~/.ssh", "~/.aws", "~/.config/gh"]
+    }
+  },
+  "permissions": {
+    "deny": [
+      "Edit(~/.claude/**)",
+      "Write(~/.claude/**)",
+      "Edit(~/.codex/**)",
+      "Write(~/.codex/**)"
+    ]
+  }
+}
+```
+
+The `permissions.deny` block stops the agent rewriting its own config
+(the "untrusted input reprograms the agent" leg) — include it only for
+autonomous runs; it would break normal claude-config maintenance
+sessions. With the sandbox on, `bypassPermissions` /
+`--dangerously-skip-permissions` still can't cross the sandbox boundary,
+which is what makes bounded auto-approve sessions tolerable.
+
+Still gated on the 4090-box experiments (do not build until validated):
+OpenShell adoption, the install.sh profile overlays, and the HPC
+rootless-podman question. The open-questions list at the bottom is
+unchanged.
+
 ## The goal
 
 Run a coding agent — possibly a small/weak local model — for long stretches
