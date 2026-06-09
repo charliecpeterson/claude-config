@@ -15,6 +15,7 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 ├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
 ├── agents/             Custom sub-agents shared across skills (deep-planner and writing-architect)
+├── notes/              Research notes and scratch documents (not installed anywhere)
 ├── install.sh          Symlinks files into ~/.claude/
 └── .gitignore
 ```
@@ -53,8 +54,10 @@ The script:
   `~/.claude/<name>.backup-YYYYMMDD-HHMMSS` before replacing it.
 - Skips files that are already correctly symlinked, so the script is safe
   to re-run.
+- Prunes symlinks that point into this repo but whose target no longer exists
+  (skills or agents deleted from the repo).
 - Then prompts, once each, to clone the personal MCP repos (`PERSONAL_MCPS`)
-  to `~/projects/<name>` and `uv sync` them (not registered with Claude Code;
+  to `~/mcps/<name>` and `uv sync` them (not registered with Claude Code;
   see "Personal MCP servers" below), and to install the `security-review-deep`
   tools. Run without a terminal, it does the symlinks and takes each prompt's
   default (clone MCPs, skip security tools).
@@ -63,22 +66,31 @@ Restart Claude Code after the first install so it picks up the new skills.
 
 ## Personal MCP servers
 
-MCP servers I wrote and run locally (e.g. `edamcp`). `install.sh` offers to
-clone each to `~/projects/<name>` and `uv sync` it, but deliberately does not
-register them with Claude Code. Registering at user scope would load every
-server's tools into context in every project, used or not.
+MCP servers I wrote and run locally. They all live under `~/mcps/<name>` —
+one predictable place, separate from `~/projects` where active development
+happens. `install.sh` offers to clone each and `uv sync` it, but deliberately
+does not register any of them with Claude Code: every server is **inactive by
+default**. Registering at user scope would load every server's tools into
+context in every project, used or not.
 
-Instead, register a server only in the project where you want it, with local
+Instead, enable a server only in the project where you want it, with local
 scope, so its tools load there and nowhere else:
 
 ```bash
 # run inside the project that needs it
-claude mcp add --scope local edamcp -- uv run --directory ~/projects/edamcp edamcp
+claude mcp add --scope local edamcp -- uv run --directory ~/mcps/edamcp edamcp
+claude mcp add --scope local chemtools -- uv run --directory ~/mcps/chemtoolsmcp chemtoolsmcp
+claude mcp add --scope local comfyui -- uv run --directory ~/mcps/comfyui_mcp comfyui_mcp
+
+# office-google-mac-mcp is a monorepo; each app is its own server
+claude mcp add --scope local word -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp word
+claude mcp add --scope local excel -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp excel
+claude mcp add --scope local powerpoint -- uv run --directory ~/mcps/office-google-mac-mcp/packages/office office-mcp powerpoint
 ```
 
 Append `--mode local` for edamcp's thin (35-tool) surface. Because the launch
-command points at the `~/projects/edamcp` checkout, your local edits are live
-and `git pull` updates it.
+command points at the `~/mcps/<name>` checkout, local edits are live and
+`git pull` updates it.
 
 To add another personal MCP, append a `"name|git-url"` line to `PERSONAL_MCPS`
 in `install.sh`, re-run it, then use the same `claude mcp add --scope local`
@@ -100,11 +112,9 @@ machines, `git pull` and the changes propagate.
 | `dyslexia-friendly` | Formats all output for dyslexic-friendly reading |
 | `editor` | Critique-only feedback on drafts (no rewriting) |
 | `human-writer` | Generate or rewrite prose, always non-AI-sounding |
+| `office-mcp` | Driving live Word/Excel/PowerPoint docs through the office MCP tools |
 | `presentation-designer` | Slide content and narrative for decks |
+| `recent-research` | Check current community/web sources before answering fast-moving questions |
 | `security-review-deep` | Scanner-grounded security audit (distinct from built-in `/security-review`) |
 | `session-handoff` | Cross-agent handoff document |
-| `diffusion-skills/skills/*` | Prompting skills for image and video models (Flux, Qwen, Z-Image, Wan, LTX, Illustrious) |
-
-The diffusion-skills folder is a container — each prompt-skill inside it
-installs as a top-level skill in `~/.claude/skills/` (e.g., `prompt-flux`
-becomes its own skill).
+| `writing-architect` | Macro-first pipeline for multi-page documents (outline → draft → layered reviews) |

@@ -12,7 +12,7 @@
 # ~/.codex/AGENTS.md, since non-Claude agents don't resolve CLAUDE.md @imports.
 #
 # Config files and skills install non-interactively. The script then prompts,
-# once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/projects/,
+# once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/mcps/,
 # registered per-project with `claude mcp add --scope local`, see README) and
 # to install the security-review-deep tools. With no terminal attached it
 # takes each prompt's default and does not block.
@@ -53,12 +53,17 @@ PORTABLE_SKILLS=(
 CHECK_ONLY=0
 
 # Personal MCP servers to make available on this machine. The script clones
-# each to ~/projects/<name> and runs `uv sync`; it does NOT register them with
-# Claude Code. Register per-project with `claude mcp add --scope local` (see
-# README) so their tools only load where you actually use them.
+# each to ~/mcps/<name> and runs `uv sync`; it does NOT register them with
+# Claude Code, so they all stay inactive by default. Enable one only where you
+# need it with `claude mcp add --scope local` (see README) so its tools load
+# there and nowhere else.
 # Format: "name|git-url".
+MCPS_DIR="$HOME/mcps"
 PERSONAL_MCPS=(
   "edamcp|https://github.com/charliecpeterson/edamcp.git"
+  "chemtoolsmcp|https://github.com/charliecpeterson/chemtoolsmcp.git"
+  "comfyui_mcp|https://github.com/charliecpeterson/comfyui_mcp.git"
+  "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
 )
 
 for arg in "$@"; do
@@ -108,6 +113,21 @@ is_portable_skill() {
     [[ "$s" == "$name" ]] && return 0
   done
   return 1
+}
+
+# Remove symlinks that point into this repo but whose target no longer exists
+# (a skill or agent that was deleted or moved out of the repo).
+prune_dangling() {
+  local dir="$1" link target
+  [[ -d "$dir" ]] || return 0
+  for link in "$dir"/*; do
+    [[ -L "$link" ]] || continue
+    target="$(readlink "$link")"
+    if [[ "$target" == "$REPO_DIR"/* && ! -e "$link" ]]; then
+      echo "  prune    $link (target gone: $target)"
+      rm "$link"
+    fi
+  done
 }
 
 # Point Crush at ~/.agents/skills via skills_paths. Only touch crush.json if
@@ -348,8 +368,13 @@ run_check() {
     local target
     target="$(readlink "$link")"
     if [[ "$target" == "$REPO_DIR"/* ]]; then
-      echo "  ✓ $(basename "$link")"
-      ((n++)) || true
+      if [[ -e "$link" ]]; then
+        echo "  ✓ $(basename "$link")"
+        ((n++)) || true
+      else
+        echo "  ✗ $(basename "$link") (dangling — target gone; re-run ./install.sh to prune)"
+        missing=1
+      fi
     fi
   done
   [[ "$n" -eq 0 ]] && { echo "  (none)"; missing=1; }
@@ -395,11 +420,14 @@ run_check() {
 
   if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
     echo
-    echo "Personal MCP repos (~/projects; register per-project, see README):"
+    echo "Personal MCP repos (~/mcps; register per-project, see README):"
     for entry in "${PERSONAL_MCPS[@]}"; do
       local mcp_name="${entry%%|*}"
-      if [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
+      if [[ -d "$MCPS_DIR/$mcp_name/.git" ]]; then
         echo "  ✓ $mcp_name"
+      elif [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
+        echo "  ✗ $mcp_name (at ~/projects/$mcp_name, old layout; mv to $MCPS_DIR/)"
+        missing=1
       else
         echo "  ✗ $mcp_name (not cloned; re-run ./install.sh)"
         missing=1
@@ -511,18 +539,9 @@ if [[ -d "$REPO_DIR/agents" ]]; then
   done
 fi
 
-# Diffusion skills live one level deeper: skills/diffusion-skills/skills/<name>/
-if [[ -d "$REPO_DIR/skills/diffusion-skills/skills" ]]; then
-  echo
-  echo "Diffusion skills:"
-  for skill_dir in "$REPO_DIR/skills/diffusion-skills/skills"/*/; do
-    [[ -d "$skill_dir" ]] || continue
-    skill_name="$(basename "$skill_dir")"
-    if [[ -f "$skill_dir/SKILL.md" ]]; then
-      link_file "${skill_dir%/}" "$CLAUDE_DIR/skills/$skill_name"
-    fi
-  done
-fi
+prune_dangling "$CLAUDE_DIR/skills"
+prune_dangling "$CLAUDE_DIR/agents"
+prune_dangling "$AGENTS_SKILLS_DIR"
 
 # ---------------------------------------------------------------------------
 # Other agent CLIs (Codex, pi, opencode, Crush)
@@ -540,13 +559,19 @@ echo "  note     pi has no global-rules file; it gets skills only (per-project A
 # ---------------------------------------------------------------------------
 if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
   echo
-  echo "Personal MCP servers (cloned to ~/projects; register per-project, see README):"
+  echo "Personal MCP servers (cloned to ~/mcps; inactive until registered per-project, see README):"
+  mkdir -p "$MCPS_DIR"
   for entry in "${PERSONAL_MCPS[@]}"; do
     mcp_name="${entry%%|*}"
     mcp_url="${entry#*|}"
-    mcp_path="$HOME/projects/$mcp_name"
+    mcp_path="$MCPS_DIR/$mcp_name"
     if [[ -d "$mcp_path/.git" ]]; then
       echo "  ok       $mcp_name ($mcp_path)"
+      continue
+    fi
+    if [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
+      echo "  note     $mcp_name found at ~/projects/$mcp_name (old layout);"
+      echo "           mv it to $mcp_path and update any local-scope registrations"
       continue
     fi
     if ! command -v uv >/dev/null 2>&1; then
