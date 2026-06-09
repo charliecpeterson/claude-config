@@ -291,14 +291,18 @@ The voice-matcher returns:
 See `agents/specificity-auditor.md` and `agents/voice-matcher.md` for
 full schemas.
 
-Your job once both return:
+Your job once both return (the two reports have different schemas —
+don't literally merge them; coordinate them):
 
-1. **Merge the two reports** before presenting. Many findings will
-   overlap (a specificity issue often also reads as voice divergence);
-   collapse those into one finding so the user sees each problem once.
+1. **Collapse duplicates across the two reports** before presenting.
+   When a specificity finding and a voice divergence point at the same
+   paragraph or sentence, present them as one finding so the user sees
+   each problem once. Everything else stays in its own list.
 2. **Batch all `requires_user` questions** from specificity into one
    message. Don't ask them one at a time — they came up in one pass,
-   answer them in one pass.
+   answer them in one pass. A voice divergence whose rephrase depends
+   on one of those answers is provisional: get the domain value first,
+   then generate the rephrase.
 3. **Present `fix_able` and voice `divergences` together** as a list of
    proposed changes. Let the user accept all, reject some, or edit
    individually.

@@ -185,8 +185,12 @@ async def _load_kev(client: httpx.AsyncClient) -> dict[str, dict]:
     if _KEV_CACHE["by_cve"] and (now - _KEV_CACHE["fetched_at"]) < _KEV_TTL:
         return _KEV_CACHE["by_cve"]
     data = await _get_json(client, KEV_URL)
+    if not data:
+        # Failed fetch: serve the stale index rather than caching an empty
+        # one, which would silently answer "not in KEV" for the next hour.
+        return _KEV_CACHE["by_cve"]
     by_cve = {
-        v["cveID"]: v for v in (data or {}).get("vulnerabilities", [])
+        v["cveID"]: v for v in data.get("vulnerabilities", [])
     }
     _KEV_CACHE.update(fetched_at=now, by_cve=by_cve)
     return by_cve

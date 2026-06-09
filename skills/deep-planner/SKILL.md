@@ -332,7 +332,8 @@ directory layout, maybe one or two key source files.
 **For substantial codebases (many modules) OR large documents
 (design docs, architecture docs, READMEs over ~200 lines), prefer
 parallel `Explore` agent fan-out** over reading content into the
-conductor's context. The agents read; their summaries enter your
+conductor's context. (`Explore` is Claude Code's built-in read-only
+search agent type — no definition file in `agents/` is needed.) The agents read; their summaries enter your
 context. You never pull the bulk of the codebase or a multi-page
 design doc into the main conversation.
  
