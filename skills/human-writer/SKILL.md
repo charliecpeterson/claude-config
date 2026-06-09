@@ -1,15 +1,6 @@
 ---
 name: human-writer
-description: >
-  Use this skill any time you generate or rewrite prose for the user — emails,
-  documents, posts, messages, bios, proposals, announcements, slide copy, blog
-  drafts, or any other written content. Also trigger when the user pastes a
-  draft (their own or AI-generated) and says "make this sound less like AI",
-  "clean this up", "rewrite this", "remove AI-isms", "tighten this", or
-  similar. The goal is prose that reads like a sharp human wrote it — direct,
-  specific, opinionated — so the user never has to rewrite Claude's output
-  themselves. For critique-style feedback (notes on a draft without rewriting
-  it), use the `editor` skill instead.
+description: "Use any time you generate or rewrite prose for the user \u2014 emails, documents, posts, proposals, any written content \u2014 so it reads like a sharp human wrote it: direct, specific, no AI tells. Also trigger on \"make this sound less like AI\", \"clean this up\", \"rewrite this\", \"tighten this\". For critique without rewriting, use editor."
 ---
 
 # Human Writer

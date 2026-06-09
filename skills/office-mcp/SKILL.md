@@ -1,6 +1,6 @@
 ---
 name: office-mcp
-description: Use when reading or editing the user's open Microsoft Word, Excel, or PowerPoint documents on macOS through the office-mcp tools (word_*, excel_*, ppt_*, run_applescript). Covers the read -> edit -> screenshot workflow, conventions (1-based indexes, [r,g,b] colors, the sheet param for cross-tab), the composite tools to prefer, and what AppleScript can't do.
+description: "Use when reading or editing the user's open Microsoft Word, Excel, or PowerPoint documents on macOS through the office MCP tools (word_*, excel_*, ppt_*, run_applescript). Covers the read -> edit -> screenshot workflow, tool conventions (1-based indexes, [r,g,b] colors, sheet param), the composite tools to prefer, and what AppleScript can't do."
 ---
 
 # Driving Office with office-mcp

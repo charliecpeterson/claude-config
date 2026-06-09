@@ -1,23 +1,6 @@
 ---
 name: writing-architect
-description: >
-  Use this skill for multi-page documents where structure matters as much as
-  prose — proposals, papers, reports, long memos, white papers, grant
-  applications, dissertations. Trigger on "help me write this proposal/paper",
-  "deep writing pass", "review the whole document", "this needs more than a
-  copy edit", "this reads like AI even though it has no AI tells", "make this
-  sound like an expert in the field wrote it", or any time the user is working
-  on a long-form piece for a specialist audience. Runs a macro-first pipeline:
-  intake (audience, voice samples, what cannot be invented) → outline contract
-  → drafting with explicit placeholders → developmental review → structural
-  review → specificity audit and voice match (parallel) → persona-reader
-  simulation (parallel) → hands off to `human-writer` for the copy pass and
-  `editor` for the final critique. Designed for the failure mode where AI
-  prose dodges every sentence-level AI tell but still reads like an outsider
-  summary to a domain expert. For short prose (an email, a paragraph, a Slack
-  message), use `human-writer` directly — this skill is overkill below ~1
-  page. For pure critique of an existing draft without intake or rewrite, use
-  `editor`.
+description: "Macro-first pipeline for multi-page documents where structure matters as much as prose (proposals, papers, grants, reports): intake -> outline contract -> draft -> developmental, structural, specificity, voice, and persona reviews -> human-writer copy pass. Trigger on \"deep writing pass\", \"this reads like AI even with no AI tells\", or any long-form piece for a specialist audience. Under ~1 page use human-writer; for critique only, editor."
 ---
 
 # Writing Architect

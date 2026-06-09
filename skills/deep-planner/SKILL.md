@@ -1,33 +1,6 @@
 ---
 name: deep-planner
-description: >
-  Activate this skill for deep, structured planning sessions where the AI must
-  question the user exhaustively before making any assumptions, and then
-  optionally carry the confirmed requirements through research, a
-  production-readiness audit, an architecture draft, and a staged roadmap.
-  Use when the user wants to plan, design, architect, or spec out any project,
-  system, product, workflow, or decision — no matter how large or small.
-  Trigger phrases include: "help me plan", "let's design", "I want to build",
-  "help me think through", "plan this out", "I need a spec", "let's architect",
-  "walk me through this", or any request where the user has a goal but hasn't
-  fully defined how to get there. Also trigger if the user says "deep planner"
-  or "/plan". The goal is exhaustive shared understanding — nothing gets
-  assumed, everything gets confirmed. After Phase 5 (final requirements
-  confirmation), the skill asks whether to continue into a heavier architecture
-  pipeline that dispatches `stack-scout`, `library-scout`, `competitor-scout`,
-  `readiness-auditor`, and `architecture-drafter` sub-agents; the user can
-  stop with the requirements doc or chain through to a full
-  architecture-and-roadmap artifact. Built-in Claude Code plan mode
-  (`EnterPlanMode`) is the lightweight alternative; this skill is the
-  opt-in slow careful path. Phase 0 declares a project **archetype**
-  (product/service, data/ML, research artifact, library/CLI, or
-  pipeline) which routes every downstream phase: archetype-specific
-  "secretly upstream" checklist enters Phase 2, scouts in Phase 6
-  search the right source surfaces (Scholar / arXiv for data/ML and
-  research; GitHub / HN for product / library / pipeline), and the
-  readiness auditor in Phase 7 applies an archetype-matched checklist.
-  All planning output flows into a single `PROJECT_PLAN.md` at the
-  project root, updated incrementally and consulted on re-invocation.
+description: "Slow, exhaustive planning sessions: question the user one decision at a time until requirements are fully confirmed, then optionally chain into research scouts, a readiness audit, an architecture draft, and a staged roadmap. Trigger on \"help me plan\", \"let's design\", \"I want to build\", \"deep planner\", or /plan. Built-in plan mode is the lightweight alternative; this is the opt-in careful path."
 ---
  
 # Deep Planner Skill

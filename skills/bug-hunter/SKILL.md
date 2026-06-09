@@ -1,6 +1,6 @@
 ---
 name: bug-hunter
-description: "Use this skill whenever the user reports a bug, error, crash, unexpected behavior, failing test, or code \"not working right.\" Trigger on phrases like \"this is broken\", \"why doesn't this work\", \"I'm getting an error\", \"fix this bug\", \"this isn't doing what I want\", \"stack trace\", \"TypeError\", \"undefined\", \"null reference\", or any time the user shares code alongside a problem. Also trigger when code runs without error but produces the wrong result. The skill enforces a disciplined debugging process: find the real root cause (not just where the error surfaces), avoid band-aid fixes, prevent the model from looping on the same wrong approach, check whether a fix breaks other parts of the code, and walk the user through the plan before applying it."
+description: "Disciplined debugging when the user reports a bug, error, crash, failing test, or wrong output. Trigger on \"this is broken\", \"why doesn't this work\", stack traces, or code that runs but gives the wrong result. Finds the real root cause instead of patching symptoms, avoids repeating failed fixes, and walks through the plan before applying it."
 ---
  
 # Bug Hunter

@@ -1,10 +1,6 @@
 ---
 name: presentation-designer
-description: >
-  Design the content and narrative for presentation slides — not the visual layout, but what actually goes on each slide and why.
-  Use this skill whenever the user is working on a slide deck, presentation, talk, or pitch and wants help with slide content, structure, messaging, story flow, or what to say. Trigger on phrases like "help me design my slides", "what should this slide say", "build out my presentation", "help me with my deck", "what should go on this slide", "plan my talk", "write slide content", or when the user shares an outline or topic and asks what to put on slides.
-  This skill is especially important when the user wants substantive, real content — not corporate filler or AI-sounding fluff — and wants to produce slides that actually say something.
-  Also use when the user mentions their Claude Code presentation template at github.com/charliecpeterson/presentation-template.
+description: "Design slide content and narrative for decks, talks, and pitches \u2014 what each slide says and why, not visual layout. Trigger on \"help me with my deck\", \"what should this slide say\", \"plan my talk\", \"build out my presentation\", or an outline the user wants turned into slides. Substantive content, not corporate filler; knows the user's presentation-template repo."
 ---
  
 # Presentation Content Designer

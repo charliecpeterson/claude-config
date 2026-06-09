@@ -1,12 +1,6 @@
 ---
 name: dyslexia-friendly
-description: >
-  Format ALL responses to be dyslexia-friendly. Use this skill whenever the
-  user mentions dyslexia, reading difficulties, or asks for easier-to-read
-  output. Also trigger when the user says things like "hard to read", "easier
-  format", "simpler layout", or "reading support". When active, every single
-  response must follow these formatting rules — do not revert to standard
-  formatting even for short replies.
+description: "Format ALL responses to be dyslexia-friendly. Trigger when the user mentions dyslexia, reading difficulties, or asks for easier-to-read output (\"hard to read\", \"simpler layout\"). Once active, every response follows the formatting rules, even short replies."
 ---
  
 # Dyslexia-Friendly Output Skill

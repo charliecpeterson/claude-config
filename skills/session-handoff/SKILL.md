@@ -1,6 +1,6 @@
 ---
 name: session-handoff
-description: Generate a self-contained Markdown handoff document — plus, if the session produced files, a clear inventory of those files and a proposed workspace layout — so the user can move the work from Claude desktop to another AI agent (most often a CLI agent like Claude Code that has filesystem access the desktop app doesn't). Trigger ONLY when the user explicitly asks for a handoff — phrases like "handoff doc", "session handoff", "write up a handoff", "summarize this for another agent", "I'm moving this to Claude Code", or "wrap this session up so I can continue elsewhere". Do not trigger on generic "summarize this chat" requests — handoff is for agent-to-agent transfer, not for the user to re-read.
+description: "Generate a self-contained Markdown handoff document \u2014 plus a file inventory and proposed workspace layout if the session produced files \u2014 for moving work to another AI agent. Trigger ONLY on explicit asks: \"handoff doc\", \"session handoff\", \"I'm moving this to Claude Code\", \"wrap this up so I can continue elsewhere\". Not for generic chat summaries."
 ---
  
 # Session Handoff

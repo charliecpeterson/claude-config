@@ -1,16 +1,6 @@
 ---
 name: recent-research
-description: >
-  Check current, real-world sources before answering on fast-moving topics,
-  instead of relying on stale training knowledge. Pulls what people are
-  actually saying right now from community sources (Reddit, HN, forums,
-  YouTube) plus web and news, then grounds the answer in that. Trigger when the
-  user asks what's new, best, or trending — and also when recency clearly
-  matters even if not asked outright: version numbers, prices, release status,
-  "still", "these days", "latest", or the current state of a named tool, model,
-  library, or piece of hardware. Do NOT fire on every passing mention; fire when
-  a stale answer would actually mislead. For scientific-literature or academic
-  research on a topic, use deep-research instead.
+description: "Check current community and web sources (Reddit, HN, forums, news) before answering on fast-moving topics. Trigger on what's new/best/trending, and whenever recency matters even unasked: version numbers, prices, release status, \"still\", \"latest\", the current state of a named tool or model. Skip when a stale answer wouldn't mislead. For academic literature use deep-research."
 ---
 
 # recent-research: Find out what people are actually saying right now

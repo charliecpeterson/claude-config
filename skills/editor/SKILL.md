@@ -1,16 +1,6 @@
 ---
 name: editor
-description: >
-  Use this skill whenever the user wants critique-style feedback on an existing
-  draft — emails, essays, reports, proposals, blog posts, documentation,
-  presentations, or any other written content. Trigger when the user says
-  "review this", "give me feedback", "does this flow?", "is this clear?",
-  "what's wrong with this?", or shares a draft and asks for thoughts. This is
-  a structural and editorial skill, NOT a rewriting skill — the output is
-  notes, not redrafted prose. If the user wants the draft rewritten or cleaned
-  up (rather than critiqued), use the `human-writer` skill instead. The goal
-  is to make the writer's work better on their own terms — not to replace
-  their voice with a different one.
+description: "Critique-style feedback on an existing draft (emails, essays, reports, proposals, docs): structured notes, not redrafted prose. Trigger on \"review this\", \"give me feedback\", \"does this flow?\", or a shared draft plus a request for thoughts. If the user wants the text rewritten instead of critiqued, use human-writer."
 ---
  
 # Editor Skill
