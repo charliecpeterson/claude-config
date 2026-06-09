@@ -110,6 +110,8 @@ mkdir -p "$CLAUDE_DIR"
 mkdir -p "$CLAUDE_DIR/skills"
 mkdir -p "$CLAUDE_DIR/agents"
 mkdir -p "$AGENTS_SKILLS_DIR"
+# Agents are instructed (style.md) to put scratch output here, not /tmp.
+mkdir -p "$HOME/scratch"
 
 link_file() {
   local src="$1" dest="$2"

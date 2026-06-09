@@ -1,5 +1,16 @@
 # Coding style and conduct
 
+## Scratch and temp files
+- Scratch output (one-off test scripts, downloads, intermediate
+  artifacts, debug dumps) goes in `~/scratch/`, not `/tmp`. On shared
+  systems `/tmp` is node-local, shared with other users, and fills up;
+  on my own machines I'd rather leftovers be visible and cleanable in
+  one place than scattered or silently purged.
+- On HPC clusters with a real scratch filesystem, use `$SCRATCH`
+  instead — `$HOME` quotas there are small.
+- `/tmp` is still fine when a tool requires it, or for kilobyte-scale
+  files that die with the session.
+
 ## Comments
 - Comment *why*, never *what*. If the code shows what it does, the comment is noise.
 - No section banners (`# ===== SETUP =====`). Use functions.
