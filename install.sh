@@ -13,11 +13,12 @@
 #
 # Config files and skills install non-interactively. The script then prompts,
 # once each, to clone any personal MCP repos (PERSONAL_MCPS, into ~/mcps/,
-# registered per-project with `claude mcp add --scope local`, see README) and
-# to install the security-review-deep tools. With no terminal attached it
-# takes each prompt's default and does not block.
+# registered per-project with `claude mcp add --scope local`, see README), to
+# clone personal repos for editing (PERSONAL_REPOS, into ~/projects/), and to
+# install the security-review-deep tools. With no terminal attached it takes
+# each prompt's default and does not block.
 #
-# Re-runnable. Already-linked files and already-cloned MCPs are left as-is.
+# Re-runnable. Already-linked files and already-cloned repos are left as-is.
 #
 # Usage:
 #   ./install.sh          # config + skills, then prompt for MCPs and security tools
@@ -69,6 +70,17 @@ PERSONAL_MCPS=(
   "comfyui_mcp|https://github.com/charliecpeterson/comfyui_mcp.git"
   "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
   "h2mcp|https://github.com/charliecpeterson/h2mcp.git"
+)
+
+# Personal repos to have on hand for editing. Plain `git clone` (no build step),
+# unlike the MCPs above — these are workspaces you edit. Cloned to ~/projects/<name>.
+# The presentation template is also a GitHub *template* repo: start a new talk with
+# `gh repo create my-talk --template charliecpeterson/presentation-template`, not
+# from this clone — this clone is only for editing the template itself.
+# Format: "name|git-url".
+REPOS_DIR="$HOME/projects"
+PERSONAL_REPOS=(
+  "presentation-template|https://github.com/charliecpeterson/presentation-template.git"
 )
 
 # Build a freshly cloned MCP: uv for Python repos, npm (+ build script if one
@@ -474,6 +486,20 @@ run_check() {
     done
   fi
 
+  if [[ "${#PERSONAL_REPOS[@]}" -gt 0 ]]; then
+    echo
+    echo "Personal repos (~/projects):"
+    for entry in "${PERSONAL_REPOS[@]}"; do
+      local repo_name="${entry%%|*}"
+      if [[ -d "$REPOS_DIR/$repo_name/.git" ]]; then
+        echo "  ✓ $repo_name"
+      else
+        echo "  ✗ $repo_name (not cloned; re-run ./install.sh)"
+        missing=1
+      fi
+    done
+  fi
+
   # Security tooling status — only if the skill is present
   if [[ -d "$REPO_DIR/skills/security-review-deep" ]]; then
     echo
@@ -630,6 +656,34 @@ if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
       fi
     else
       echo "  skip     $mcp_name (declined)"
+    fi
+  done
+fi
+
+# ---------------------------------------------------------------------------
+# Personal repos (plain clones you edit; e.g. the presentation template)
+# ---------------------------------------------------------------------------
+if [[ "${#PERSONAL_REPOS[@]}" -gt 0 ]]; then
+  echo
+  echo "Personal repos (cloned to ~/projects for editing):"
+  mkdir -p "$REPOS_DIR"
+  for entry in "${PERSONAL_REPOS[@]}"; do
+    repo_name="${entry%%|*}"
+    repo_url="${entry#*|}"
+    repo_path="$REPOS_DIR/$repo_name"
+    if [[ -d "$repo_path/.git" ]]; then
+      echo "  ok       $repo_name ($repo_path)"
+      continue
+    fi
+    if ask_yn "  Clone $repo_name?" Y; then
+      echo "  clone    $repo_name -> $repo_path"
+      if git clone --quiet "$repo_url" "$repo_path"; then
+        echo "  cloned   $repo_name"
+      else
+        echo "  fail     $repo_name (clone manually at $repo_path)"
+      fi
+    else
+      echo "  skip     $repo_name (declined)"
     fi
   done
 fi
