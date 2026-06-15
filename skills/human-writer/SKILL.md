@@ -103,8 +103,10 @@ For the exhaustive vocabulary tables (tier 1, 2, 3), context profiles, and
 deep pattern detail (significance inflation, copula avoidance, synonym
 cycling, vague attributions, reasoning-chain artifacts, novelty inflation,
 emotional flatline, false concessions, parenthetical hedging, and more),
-see `references/anti-ai-patterns.md`. Open that file when auditing existing
-prose or when a specific pattern needs more context than this SKILL gives.
+see `references/anti-ai-patterns.md`. Open that file when auditing or
+co-editing existing prose, or when a specific pattern needs more context than
+this SKILL gives. It also carries the co-editor discipline rules (minimal-diff
+editing, restraint, editing for substance over surface) for rewrite mode.
 
 ---
 

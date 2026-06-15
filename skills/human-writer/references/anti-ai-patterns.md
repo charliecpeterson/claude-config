@@ -374,6 +374,69 @@ then rebuild from there.
 
 ---
 
+## Co-editor discipline
+
+Everything above is about *detecting* AI prose. This section is about *editing*
+it without making the user redo your work. When the input is the user's own
+draft, you are an editor, not a ghostwriter. The default is restraint.
+
+### Minimal diff
+
+Change the least that fixes the problem.
+
+- Edit the broken span, not the sentence around it. If one clause is passive,
+  fix the clause; don't recast the whole sentence to match your taste.
+- A clean sentence stays untouched even when you'd have written it differently.
+  "I would phrase this another way" is not a reason to edit. The user's wording,
+  idioms, and rhythm are the load-bearing human texture — keep them.
+- If you're rewriting more than roughly a third of a paragraph the user wrote,
+  stop. Either it genuinely needs a rewrite (say so, and say why) or you're
+  over-editing. Silent wholesale rewrites force the user to diff your output
+  against their draft to find what you changed — the exact work they handed
+  you the draft to avoid.
+
+### The lateral-swap trap
+
+Removing a tell is not the same as fixing the sentence. "delve into the data"
+→ "explore the data" trades one empty phrase for another that happens to pass
+the vocabulary check. A clean word in an empty sentence is still empty.
+
+Before replacing a flagged word, ask what the sentence is supposed to tell the
+reader. If the answer is "nothing," cut it — don't relexify it. The word list
+is a smoke detector, not the fix.
+
+### Edit for substance, not surface
+
+The test for every edit: does the reader now know something they didn't?
+
+A paragraph can survive the copy-edit grammatically perfect and still leave the
+reader no wiser. When that happens, the problem was never the vocabulary — the
+paragraph had no point. Polishing it harder won't help. Name the gap to the
+user ("this paragraph reads clean but doesn't land a specific claim — what's
+the one thing it should tell the reader?") instead of sanding it smoother.
+
+### Make it build
+
+Across a multi-paragraph piece, check that the paragraphs advance rather than
+circle. AI prose tends to restate the same idea in three outfits; a real
+argument moves — each paragraph earns its place by adding something the last
+one didn't. If two paragraphs could swap order with no loss, one of them isn't
+pulling weight. Flag it; don't leave a smooth surface over a flat argument.
+
+(This is a lightweight version of the `writing-architect` structural pass. For
+a long document where the arc itself is the problem, hand off to that skill
+rather than fixing it paragraph by paragraph here.)
+
+### Show the edit
+
+As a co-editor, surface what changed and why: point to the span, name the
+pattern, give the replacement. Three or four bullets, per the SKILL's rewrite
+mode — enough for the user to accept or reject each call without re-reading
+the whole thing. The goal is that they trust the diff at a glance, not that
+they audit it.
+
+---
+
 ## Self-reference escape hatch
 
 When writing *about* AI writing patterns (this file, tutorials, the SKILL.md
