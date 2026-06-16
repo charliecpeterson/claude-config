@@ -310,11 +310,13 @@ quirks (Rust `unsafe`, C/C++ memory, half-broken AI-generated code).
   cargo-audit print manual hints (they need a language toolchain).
   `install.sh --check` reports presence of each, distinguishing
   required (✗) from optional (-).
-- [ ] **P2** Integration test with a seeded `vulnerable-app/` fixture
-  (Python + Dockerfile + Actions workflow + vulnerable requirements.txt)
-  and a runner that exits 1 on regression. Not built — the server is
-  currently verified by static scanners + manual tool exercise only
-  (see `mcp-server/README.md`). Was previously marked done in error.
+- [x] **P2** Integration test at `tests/run_integration.sh`
+  (`tests/integration_test.py`): calls the server's tools against stable
+  identifiers (Log4Shell in KEV, `requests` on PyPI) and checks structural
+  invariants; exits 1 on regression, reports network failures as skips.
+  No vulnerable-app fixture — the server's tools take identifiers, not
+  directories, so an identifier-based test is the correct shape and avoids
+  committing anything GitHub would flag (secrets, vulnerable manifests).
 
 ---
 

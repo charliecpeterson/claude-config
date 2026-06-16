@@ -472,11 +472,16 @@ notices stale caches. Never strip these in the rendered report.
 
 ## Testing
 
-There is no automated test harness for the server; it's verified by
-running the static scanners below and by exercising the tools by hand
-against a known CVE/package after changing the server file (e.g.
-`composite_risk` on a KEV-listed CVE, `latest_safe_version` on a package
-with a known advisory).
+A live smoke test lives at `../tests/run_integration.sh`. It calls the
+server's tools against stable identifiers (Log4Shell in KEV, `requests`
+on PyPI) and checks structural invariants. It hits live APIs, so it's a
+manual check — run it after changing this file; network failures are
+reported as skips, not failures. See `../tests/README.md`.
+
+```bash
+../tests/run_integration.sh
+# Result: pass=8 fail=0 skip=0
+```
 
 Bandit and Semgrep should stay clean against `mcp_security_server.py`:
 
