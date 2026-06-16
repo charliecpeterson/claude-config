@@ -11,6 +11,21 @@
 - `/tmp` is still fine when a tool requires it, or for kilobyte-scale
   files that die with the session.
 
+## Running commands and background work
+- For long-running commands (builds, test suites, Docker), start them in
+  the background and let the harness's completion notification bring you
+  back. Don't sit in a foreground poll loop.
+- Never wait by polling with a self-matching pattern, e.g.
+  `while pgrep -f "cargo test"; do sleep 5; done`. The loop's own command
+  line *contains* the string it greps for, so `pgrep` matches itself (and
+  any sibling waiter), the condition never goes false, and you get stray
+  "still running" shells that outlive the thing you were waiting on. This
+  bit me repeatedly in one session. If you must poll a condition, make the
+  check something that can't match its own process (a file marker, an exit
+  sentinel), and prefer the background-task notification over polling at all.
+- Clean up after yourself: kill stray waiters/containers you spawned, and
+  remove throwaway Docker images/build artifacts when done.
+
 ## Comments
 - Comment *why*, never *what*. If the code shows what it does, the comment is noise.
 - No section banners (`# ===== SETUP =====`). Use functions.

@@ -52,6 +52,14 @@ git diff HEAD~1 HEAD
 
 Capture the list of changed files and classify the change: feature / bug fix / refactor / dependency bump / breaking API change / docs. The classification sets expectations — a refactor that adds behavior is a smell; a feature with no new tests is a smell.
 
+The classification also shifts where the weight of the review goes:
+
+- **Refactor** — the dominant question is *behavior preservation*, not "did it add tests." Run the moves-only verification below before anything else; logic that drifted during a "pure move" is the bug this review type exists to catch.
+- **Feature** — weight Step 4 (tests) and the correctness/error-handling categories; a feature with no negative-path test is the default finding.
+- **Dependency bump** — weight the dependency and security angle: is the new version maintained, does it pull new transitive deps, does the changelog mention a CVE or a breaking change? This is the one change type where `security-review-deep` overlap is worth a glance.
+- **Breaking API change** — weight API design + migration: deprecation path, version bump, callers updated, changelog entry.
+- **Bug fix** — weight the regression test that pins the bug, and whether the fix treats the cause or the symptom.
+
 ### Step 2 — Run the deterministic tools
 
 Let the tools find what tools are good at finding, so your attention is free for what they can't.
@@ -64,10 +72,14 @@ Let the tools find what tools are good at finding, so your attention is free for
 - **Rust** — `cargo fmt --check`, `cargo clippy`, `cargo test`
 - **Ruby** — `rubocop`, `rspec`
 - **Java** — `spotbugs`, `checkstyle`, `pmd`, the project's test task
+- **Dockerfiles** — `hadolint` (catches unpinned bases, missing `--no-install-recommends`, layer/cache mistakes, missing runtime deps)
+- **Shell scripts** — `shellcheck` (quoting, word-splitting, unset-var, portability bugs)
 
 If a tool isn't configured in the project, **provision it before giving up** — `uvx ruff check`, a throwaway venv, `npx`, `pytest --cov`. A one-off install is cheap, and "no linter ran" is a weak line in an audit when the tool is one command away. Only after that genuinely fails do you note it unavailable and move on. Don't refuse to review. Capture each tool's output and treat failures as findings, not blockers.
 
 **Run the code where the risk is dynamic — don't assess it by reading alone.** Linters won't catch a broken LLM/agent retry loop, an async ordering bug, or a runtime crash on a path the tests skip. For the riskiest runtime logic — agent/LLM orchestration, background jobs, anything with no test around it — exercise it: mock the model or external call, replay a fixture, or run the one path in a REPL. "Assessed by reading only, no API key" is the most common way a review misses the real bug. If you truly can't run it, say so loudly in the report rather than implying you verified it.
+
+The same blind-spot applies to artifacts whose only real test is execution: a **Dockerfile you can't `docker build`**, a CI workflow that only runs on push, a migration you can't apply against a real DB. The static linter (`hadolint`, `shellcheck`, `actionlint`) catches surface bugs, but "the runtime dependency is missing" or "the build stage can't see that file" only shows up on a real build. When you can't run it, flag the change as statically-reviewed-only in the report — don't let a clean `hadolint` pass read as "this image builds."
 
 **Runtime tools — enable when the change touches concurrency, memory, async, or non-determinism.** Static linters miss races, leaks, and undefined behavior. When the diff touches those areas, run the relevant runtime tool alongside the test suite:
 
@@ -88,6 +100,25 @@ Before line-level nitpicking, step back. Most reviewers (human and AI) never do 
 - Does it fit the codebase, or does it look bolted on? Read 2–3 neighboring files. A change that introduces a second config loader, a parallel error-handling style, or a duplicate helper under a new name is fragmenting the codebase even if every line is "correct."
 - Is this the smallest change that solves the problem, or is there speculative generality — config options, hooks, abstractions for one caller?
 - Would the next person understand it in 30 seconds? If not, the problem is usually structure or naming, not a missing comment.
+
+### Step 3b — If it's a refactor, prove it's behavior-preserving
+
+For a change that *claims* to be a pure refactor (a file split, a rename, a move, an extraction), "I read it and it looks like a move" is not verification — a one-character operator flip hides perfectly inside a 1,700-line move. Use a mechanical line-set diff: a true move cancels out, leaving only the scaffolding.
+
+```bash
+# Per commit (or per file). Normalize away whitespace, sort, and compare
+# removed vs added lines. A pure move => the two sets are near-identical.
+git show <commit> -- '*.rs' | grep '^-' | grep -v '^---' | sed 's/^-//;s/^[[:space:]]*//;s/[[:space:]]*$//' | sort | uniq -c | sort > /tmp/removed.txt
+git show <commit> -- '*.rs' | grep '^+' | grep -v '^+++' | sed 's/^+//;s/^[[:space:]]*//;s/[[:space:]]*$//' | sort | uniq -c | sort > /tmp/added.txt
+diff /tmp/removed.txt /tmp/added.txt   # only the asymmetric lines remain
+```
+
+Classify every asymmetric line as **benign** or **suspicious**:
+
+- **Benign**: new module/header comments, `mod`/`import`/`use` declarations, visibility prefixes added to a moved item (`pub(super)` etc.), changed module-path prefixes on a call (`overlay::f` → `super::overlay::f`, same function and args), and formatter re-wraps (a signature that went multi-line — the tokens still all appear).
+- **Suspicious**: any change to an expression, operator, literal, condition, call argument, control-flow, or constant; any removed body line with no matching added line. These are the only things that can change behavior in a "move," so they get quoted verbatim and verified against the code.
+
+For a multi-file split this is the highest-confidence check you have, and it's cheap enough to fan out one verifier per commit (see "When the diff is huge"). When the asymmetric set is all-benign, state that as the finding: "verified moves-only, no logic drift." Watch especially for numeric constants and formulas in math-heavy code — those are where a silent drift does the most damage and an eyeball misses it.
 
 ### Step 4 — Tests-of-the-change analysis
 
@@ -170,3 +201,7 @@ Tell the user it was the lightweight pass and a full review can follow.
 Over ~2000 changed lines, say so up front and offer to either (a) review by directory in batches, or (b) focus first on the files most likely to carry risk — anything matching the change's core logic, plus `*migration*`, `*auth*`, `*payment*`, schema files, and public API surfaces. Don't pretend to have deeply reviewed 5000 lines in one pass.
 
 For a large diff you can also **fan the reading out to subagents** — one per area or risk cluster, each with a clean context returning a bottom line plus `file:line` evidence — and synthesize the findings yourself. The orchestration pattern is the same one project review uses; see the subagent section in `references/project-review.md`. One rule is non-negotiable in either mode: **verify every delegated claim before it enters the report.** Subagents misread line numbers, contradict each other, and invent bugs that aren't there. Re-check each high-severity finding against the actual code, discard the false positives explicitly, and never ship "an agent said X" — if you couldn't verify it, either verify it or cut it.
+
+This cuts both ways: a strong **negative** conclusion on a risky change is also a high-stakes claim. "This 1,700-line refactor is moves-only" or "the parser has no untested branch" can be just as wrong as a false bug, and there's no finding to make you look twice. When a subagent clears something that matters, spot-verify the clearance yourself — re-run the line-set diff, re-grep the count, read the one function it swore was identical — before you let "all clean" into the verdict.
+
+**Prime the subagents to be skeptical — how you prompt them decides what comes back.** A general-purpose subagent defaults to *congratulatory*: it calls code "professional-grade / production-ready / merge-ready," skims past the duplicate helper two files over, and buries the one real issue under reassurance. A review fan-out built on those is worse than no fan-out, because it launders praise into a verdict. Every review/scan subagent prompt must: forbid praise verdicts (no "looks good," no "clean" without a specific reason); demand `file:line` evidence and a quote for every claim; tell it to read the project's enforced conventions first so it doesn't flag house style as a defect; and require a position-taking bottom line, not a hedge. Prefer the purpose-built **`code-skeptic`** agent (whose system prompt bakes all this in) over `general-purpose` for these workers — and still verify its findings, because a skeptic can over-flag just as a booster under-flags.
