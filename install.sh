@@ -104,11 +104,25 @@ sync_mcp() {
   fi
 }
 
+# A cloned MCP counts as ready only once its deps are built. Otherwise a
+# clone that succeeded but whose sync failed (e.g. uv/npm was missing)
+# would re-report "ok" on every run and never repair itself.
+mcp_is_synced() {
+  local path="$1"
+  if [[ -f "$path/pyproject.toml" ]]; then
+    [[ -d "$path/.venv" ]]
+  elif [[ -f "$path/package.json" ]]; then
+    [[ -d "$path/node_modules" ]]
+  else
+    return 0
+  fi
+}
+
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK_ONLY=1 ;;
     -h|--help)
-      sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+      sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -475,7 +489,12 @@ run_check() {
     for entry in "${PERSONAL_MCPS[@]}"; do
       local mcp_name="${entry%%|*}"
       if [[ -d "$MCPS_DIR/$mcp_name/.git" ]]; then
-        echo "  ✓ $mcp_name"
+        if mcp_is_synced "$MCPS_DIR/$mcp_name"; then
+          echo "  ✓ $mcp_name"
+        else
+          echo "  ✗ $mcp_name (cloned but not built; re-run ./install.sh)"
+          missing=1
+        fi
       elif [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
         echo "  ✗ $mcp_name (at ~/projects/$mcp_name, old layout; mv to $MCPS_DIR/)"
         missing=1
@@ -639,7 +658,16 @@ if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
     mcp_url="${entry#*|}"
     mcp_path="$MCPS_DIR/$mcp_name"
     if [[ -d "$mcp_path/.git" ]]; then
-      echo "  ok       $mcp_name ($mcp_path)"
+      if mcp_is_synced "$mcp_path"; then
+        echo "  ok       $mcp_name ($mcp_path)"
+      else
+        echo "  resync   $mcp_name (cloned but not built)"
+        if sync_mcp "$mcp_path"; then
+          echo "  synced   $mcp_name"
+        else
+          echo "  fail     $mcp_name (sync manually at $mcp_path)"
+        fi
+      fi
       continue
     fi
     if [[ -d "$HOME/projects/$mcp_name/.git" ]]; then

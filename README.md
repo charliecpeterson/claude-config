@@ -15,7 +15,7 @@ to every machine, symlinked into `~/.claude/` by `install.sh`.
 ├── engineering.md      Engineering judgment: pushback, build-vs-buy, anti-over-engineering
 ├── settings.json       Synced permissions baseline (allow read-only, deny irreversibles)
 ├── skills/             One folder per skill (each contains SKILL.md + optional references/)
-├── agents/             Custom sub-agents shared across skills (deep-planner, writing-architect, llm-council)
+├── agents/             Custom sub-agents shared across skills (code-review-deep, deep-planner, writing-architect, llm-council)
 ├── hooks/              Lifecycle hook scripts + status line (symlinked to ~/.claude/hooks/)
 ├── notes/              Research notes and scratch documents (not installed anywhere)
 ├── install.sh          Symlinks files into ~/.claude/

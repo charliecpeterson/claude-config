@@ -472,18 +472,13 @@ notices stale caches. Never strip these in the rendered report.
 
 ## Testing
 
-The integration test at `../tests/run_integration.sh` exercises the
-MCP server's tools (`kev_lookup`, `composite_risk`,
-`latest_safe_version`, `package_health`) against the seeded fixture
-and asserts known-good results. Run it whenever the server file
-changes:
+There is no automated test harness for the server; it's verified by
+running the static scanners below and by exercising the tools by hand
+against a known CVE/package after changing the server file (e.g.
+`composite_risk` on a KEV-listed CVE, `latest_safe_version` on a package
+with a known advisory).
 
-```bash
-../tests/run_integration.sh
-# Result: pass=8 fail=0 skip=N
-```
-
-Bandit and Semgrep are also clean against `mcp_security_server.py`:
+Bandit and Semgrep should stay clean against `mcp_security_server.py`:
 
 ```bash
 bandit -ll -ii mcp_security_server.py

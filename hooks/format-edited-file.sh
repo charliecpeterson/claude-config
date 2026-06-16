@@ -12,9 +12,12 @@ f="$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev/nu
 dir="$(dirname "$f")"
 
 find_up() {
-  local d="$1" name="$2"
-  while [ -n "$d" ] && [ "$d" != "/" ]; do
+  local d="$1" name="$2" prev=""
+  # `prev` guards the relative-path case: dirname "." is "." forever, so
+  # without it a relative start dir spins the loop indefinitely.
+  while [ -n "$d" ] && [ "$d" != "/" ] && [ "$d" != "$prev" ]; do
     [ -e "$d/$name" ] && { echo "$d/$name"; return 0; }
+    prev="$d"
     d="$(dirname "$d")"
   done
   return 1

@@ -303,11 +303,16 @@ async def check_dependencies_bulk(
                 async with sem:
                     return sid, await _fetch_osv_by_id(client, sid)
 
-            for sid, full in await asyncio.gather(
-                *(fetch(s) for s in unique_ids), return_exceptions=False
+            for res in await asyncio.gather(
+                *(fetch(s) for s in unique_ids), return_exceptions=True
             ):
-                if isinstance(full, dict):
-                    full_by_id[sid] = full
+                # A single OSV 429/timeout must not sink the whole lockfile
+                # scan: drop the failed entry, keep the rest. The isinstance
+                # guard covers both raised exceptions and 404 (None) results.
+                if isinstance(res, tuple):
+                    sid, full = res
+                    if isinstance(full, dict):
+                        full_by_id[sid] = full
 
     results: dict[str, list[dict]] = {}
     for idx, sid in stub_pairs:
@@ -469,21 +474,32 @@ async def recent_critical_cves(
         base["keywordSearch"] = keyword
 
     results: list[dict[str, Any]] = []
+    total_available = 0
+    truncated = False
     async with httpx.AsyncClient(timeout=30) as client:
         # NVD only accepts one severity at a time.
         for sev in ("HIGH", "CRITICAL"):
             params = {**base, "cvssV3Severity": sev}
             data = await _get_json(
                 client, NVD_API, params=params, headers=_nvd_headers()
-            )
-            for item in (data or {}).get("vulnerabilities", []) or []:
+            ) or {}
+            page = data.get("vulnerabilities", []) or []
+            for item in page:
                 results.append(_summarize_nvd(item["cve"]))
+            # No pagination: a busy window has more than one page of each
+            # severity. Surface that instead of returning a complete-looking
+            # subset, the way ghsa_search does.
+            total_available += data.get("totalResults", len(page))
+            if data.get("totalResults", 0) > len(page):
+                truncated = True
 
     results.sort(key=lambda x: x.get("published", ""), reverse=True)
     return {
         "days_searched": days,
         "keyword": keyword,
         "count": len(results),
+        "total_available": total_available,
+        "result_may_be_truncated": truncated,
         "cves": results,
         "source": "nvd.nist.gov",
         "fetched_at": _now(),

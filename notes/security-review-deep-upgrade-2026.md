@@ -1,13 +1,15 @@
 # Upgrade checklist: security-review-deep → senior-grade
 
-Living tracker for upgrading this skill + MCP to match what a senior
-security engineer would expect in 2026. Items are tagged P0 (blocking
-gap), P1 (strong win), P2 (polish). Each one notes the rationale; deeper
+Status: substantially complete (one P2 integration-test item still open,
+below). Kept as a historical record of the 2026 upgrade, not a live
+tracker — don't treat unchecked items here as the current backlog without
+re-confirming against the code.
+
+Tracker for upgrading this skill + MCP to match what a senior security
+engineer would expect in 2026. Items are tagged P0 (blocking gap), P1
+(strong win), P2 (polish). Each one notes the rationale; deeper
 justification + sources are in the chat transcript that produced this
 list.
-
-Mark items with `[x]` as they land. Add a one-line note when something
-deviates from the plan or the scope changes.
 
 ---
 
@@ -308,13 +310,11 @@ quirks (Rust `unsafe`, C/C++ memory, half-broken AI-generated code).
   cargo-audit print manual hints (they need a language toolchain).
   `install.sh --check` reports presence of each, distinguishing
   required (✗) from optional (-).
-- [x] **P2** Integration test landed at `tests/run_integration.sh`
-  with a tiny seeded `tests/fixtures/vulnerable-app/` (Python +
-  Dockerfile + GitHub Actions workflow + vulnerable requirements.txt).
-  Runner exits 1 on regression. Current state: 8/8 required checks
-  pass locally; 3 layers skipped because optional scanners aren't
-  installed here. `tests/README.md` documents what's seeded and how
-  to extend.
+- [ ] **P2** Integration test with a seeded `vulnerable-app/` fixture
+  (Python + Dockerfile + Actions workflow + vulnerable requirements.txt)
+  and a runner that exits 1 on regression. Not built — the server is
+  currently verified by static scanners + manual tool exercise only
+  (see `mcp-server/README.md`). Was previously marked done in error.
 
 ---
 

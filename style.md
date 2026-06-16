@@ -96,7 +96,8 @@ When adding a function, module, or subsystem, ask:
   "improve" naming of untouched code, don't reformat unrelated lines.
 - A refactor PR should have a small, focused diff. If the diff is huge,
   split it or stop.
-- Don't introduce abstractions for one caller. Wait for the third use.
+- Don't introduce abstractions for one caller (the "wait for the third use"
+  rule under "Writing new code that lasts" applies here too).
 - When restructuring, moving, or renaming: update the docs in the same
   change. READMEs, comments referencing old paths, examples in docstrings,
   architecture notes. Stale docs are worse than missing ones.
