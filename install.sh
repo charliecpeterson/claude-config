@@ -37,6 +37,21 @@ AGENTS_SKILLS_DIR="$HOME/.agents/skills"
 CODEX_DIR="$HOME/.codex"
 OPENCODE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 
+# Which accelerated backend extras this machine can use. Apple Silicon -> mlx,
+# an NVIDIA box -> cuda, anything else -> cpu. Drives the per-capability `uv`
+# extras in PERSONAL_MCPS so e.g. meetingmcp gets cohere-mlx on the Mac and a
+# CUDA torch on the 4090 without per-machine hand-editing.
+detect_compute() {
+  if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    echo mlx
+  elif command -v nvidia-smi >/dev/null 2>&1; then
+    echo cuda
+  else
+    echo cpu
+  fi
+}
+COMPUTE_CAP="$(detect_compute)"
+
 # Skills with no Claude-Code-specific machinery (no spawned sub-agents, no
 # bundled MCP server) — safe to expose to other agent CLIs. The heavy skills
 # (code-review-deep, deep-planner, writing-architect, security-review-deep,
@@ -57,19 +72,32 @@ PORTABLE_SKILLS=(
 
 CHECK_ONLY=0
 
-# Personal MCP servers to make available on this machine. The script clones
-# each to ~/mcps/<name> and runs `uv sync`; it does NOT register them with
-# Claude Code, so they all stay inactive by default. Enable one only where you
-# need it with `claude mcp add --scope local` (see README) so its tools load
-# there and nowhere else.
-# Format: "name|git-url".
+# Personal MCP servers to make available on this machine. For each, the script
+# clones to ~/mcps/<name>, `git pull`s an existing clone, runs `uv sync` (with
+# any per-machine extras), seeds a .env from .env.example, and writes a launch
+# wrapper to ~/mcps/bin/<name>-run. It does NOT register them with any client,
+# so they stay inactive until you point Claude Code (`claude mcp add --scope
+# local`, see README) or Goose (add a stdio extension whose command is the
+# wrapper) at the wrapper.
+#
+# Format: "name|git-url[|entrypoint][|CAP=extra,extra]..."
+#   entrypoint  the uv script to run (defaults to the MCP name)
+#   CAP=...     uv extras to sync for that machine class; CAP is mlx|cuda|cpu
+#               (see detect_compute). Omit a CAP to sync base deps only there.
 MCPS_DIR="$HOME/mcps"
+WRAPPER_DIR="$MCPS_DIR/bin"
 PERSONAL_MCPS=(
   "edamcp|https://github.com/charliecpeterson/edamcp.git"
   "chemtoolsmcp|https://github.com/charliecpeterson/chemtoolsmcp.git"
   "comfyui_mcp|https://github.com/charliecpeterson/comfyui_mcp.git"
   "office-google-mac-mcp|https://github.com/charliecpeterson/office-google-mac-mcp.git"
   "h2mcp|https://github.com/charliecpeterson/h2mcp.git"
+  # Extras must match the .env: whisperx backend + DIARIZE=true + the silero
+  # VAD windowing path => whisperx,vad,diarize. ctranslate2 has no Metal backend,
+  # so whisperx runs on CPU on Apple Silicon (cuda on the 4090). Swap in
+  # cohere,cohere-mlx,vad,diarize here if you set TRANSCRIPTION_BACKEND=cohere
+  # for MLX-accelerated transcription on the Mac.
+  "meetingmcp|https://github.com/charliecpeterson/meetingmcp.git|meetingtool|mlx=whisperx,vad,diarize|cuda=whisperx,vad,diarize|cpu=whisperx,vad,diarize"
 )
 
 # Personal repos to have on hand for editing. Plain `git clone` (no build step),
@@ -83,17 +111,50 @@ PERSONAL_REPOS=(
   "presentation-template|https://github.com/charliecpeterson/presentation-template.git"
 )
 
-# Build a freshly cloned MCP: uv for Python repos, npm (+ build script if one
-# exists) for node repos.
+# Parse a PERSONAL_MCPS entry. Fields split on '|': 0=name 1=git-url, then an
+# optional bare entrypoint token and any number of CAP=extra,extra tokens.
+mcp_field() { local -a f; IFS='|' read -ra f <<< "$1"; printf '%s' "${f[$2]:-}"; }
+
+mcp_entrypoint() {
+  local -a f; local tok ep
+  IFS='|' read -ra f <<< "$1"; ep="${f[0]}"
+  if [[ ${#f[@]} -gt 2 ]]; then
+    for tok in "${f[@]:2}"; do [[ "$tok" != *=* ]] && ep="$tok"; done
+  fi
+  printf '%s' "$ep"
+}
+
+# uv extras to sync for THIS machine ($COMPUTE_CAP), or empty.
+mcp_extras() {
+  local -a f; local tok
+  IFS='|' read -ra f <<< "$1"
+  if [[ ${#f[@]} -gt 2 ]]; then
+    for tok in "${f[@]:2}"; do
+      [[ "$tok" == "$COMPUTE_CAP="* ]] && { printf '%s' "${tok#*=}"; return; }
+    done
+  fi
+}
+
+# Build a freshly cloned MCP: uv for Python repos (with any per-machine extras),
+# npm (+ build script if one exists) for node repos.
 sync_mcp() {
-  local path="$1" name
+  local path="$1" extras="${2:-}" name e
+  local -a extra_args=()
   name="$(basename "$path")"
   if [[ -f "$path/pyproject.toml" ]]; then
     if ! command -v uv >/dev/null 2>&1; then
       echo "  manual   $name: install uv, then run 'uv sync' in $path"
       return 1
     fi
-    (cd "$path" && uv sync --quiet)
+    if [[ -n "$extras" ]]; then
+      local IFS=','
+      for e in $extras; do extra_args+=(--extra "$e"); done
+    fi
+    if [[ ${#extra_args[@]} -gt 0 ]]; then
+      (cd "$path" && uv sync --quiet "${extra_args[@]}")
+    else
+      (cd "$path" && uv sync --quiet)
+    fi
   elif [[ -f "$path/package.json" ]]; then
     if ! command -v npm >/dev/null 2>&1; then
       echo "  manual   $name: install node, then 'npm install && npm run build' in $path"
@@ -102,6 +163,44 @@ sync_mcp() {
     (cd "$path" && npm install --silent \
       && { ! grep -q '"build"' package.json || npm run --silent build; })
   fi
+}
+
+# Seed a gitignored .env from .env.example so per-machine secrets/config live in
+# one file the server loads itself (pydantic-settings / dotenv) instead of being
+# re-entered in every client. Never overwrites an existing .env; values still
+# need filling in by hand.
+seed_env_file() {
+  local path="$1" name="$2"
+  [[ -f "$path/.env.example" ]] || return 0
+  if [[ -f "$path/.env" ]]; then
+    echo "  ok       $name/.env present"
+  else
+    cp "$path/.env.example" "$path/.env"
+    echo "  env      $name/.env created from .env.example — fill in secrets"
+  fi
+}
+
+# One launch command per MCP, with this machine's extras baked in. Point every
+# client (Claude Code, Goose, …) at this path; re-running install.sh refreshes it
+# after a hardware or backend change. uv-only; node MCPs launch differently.
+write_mcp_wrapper() {
+  local name="$1" path="$2" entrypoint="$3" extras="$4" e extra_flags=""
+  [[ -f "$path/pyproject.toml" ]] || return 0
+  mkdir -p "$WRAPPER_DIR"
+  if [[ -n "$extras" ]]; then
+    local IFS=','
+    for e in $extras; do extra_flags="$extra_flags --extra $e"; done
+  fi
+  local wrapper="$WRAPPER_DIR/${name}-run"
+  cat > "$wrapper" <<EOF
+#!/usr/bin/env bash
+# Generated by claude-config install.sh — launch wrapper for the $name MCP.
+# Machine class: $COMPUTE_CAP. Point every client at this path; re-run install.sh
+# to refresh extras after a hardware or backend change.
+exec uv --directory "$path" run$extra_flags $entrypoint "\$@"
+EOF
+  chmod +x "$wrapper"
+  echo "  wrapper  $wrapper"
 }
 
 # A cloned MCP counts as ready only once its deps are built. Otherwise a
@@ -651,23 +750,27 @@ echo "  note     pi has no global-rules file; it gets skills only (per-project A
 # ---------------------------------------------------------------------------
 if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
   echo
-  echo "Personal MCP servers (cloned to ~/mcps; inactive until registered per-project, see README):"
+  echo "Personal MCP servers (cloned to ~/mcps; machine class: $COMPUTE_CAP; inactive until a client points at ~/mcps/bin/<name>-run, see README):"
   mkdir -p "$MCPS_DIR"
   for entry in "${PERSONAL_MCPS[@]}"; do
-    mcp_name="${entry%%|*}"
-    mcp_url="${entry#*|}"
+    mcp_name="$(mcp_field "$entry" 0)"
+    mcp_url="$(mcp_field "$entry" 1)"
+    mcp_ep="$(mcp_entrypoint "$entry")"
+    mcp_ex="$(mcp_extras "$entry")"
     mcp_path="$MCPS_DIR/$mcp_name"
     if [[ -d "$mcp_path/.git" ]]; then
-      if mcp_is_synced "$mcp_path"; then
-        echo "  ok       $mcp_name ($mcp_path)"
+      if git -C "$mcp_path" pull --ff-only --quiet 2>/dev/null; then
+        echo "  pull     $mcp_name (fresh)"
       else
-        echo "  resync   $mcp_name (cloned but not built)"
-        if sync_mcp "$mcp_path"; then
-          echo "  synced   $mcp_name"
-        else
-          echo "  fail     $mcp_name (sync manually at $mcp_path)"
-        fi
+        echo "  note     $mcp_name: git pull skipped (local changes or non-ff; resolve at $mcp_path)"
       fi
+      if sync_mcp "$mcp_path" "$mcp_ex"; then
+        echo "  synced   $mcp_name${mcp_ex:+ [$COMPUTE_CAP: $mcp_ex]}"
+      else
+        echo "  fail     $mcp_name (sync manually at $mcp_path)"
+      fi
+      seed_env_file "$mcp_path" "$mcp_name"
+      write_mcp_wrapper "$mcp_name" "$mcp_path" "$mcp_ep" "$mcp_ex"
       continue
     fi
     if [[ -d "$HOME/projects/$mcp_name/.git" ]]; then
@@ -677,8 +780,10 @@ if [[ "${#PERSONAL_MCPS[@]}" -gt 0 ]]; then
     fi
     if ask_yn "  Clone and sync $mcp_name?" Y; then
       echo "  clone    $mcp_name -> $mcp_path"
-      if git clone --quiet "$mcp_url" "$mcp_path" && sync_mcp "$mcp_path"; then
-        echo "  synced   $mcp_name"
+      if git clone --quiet "$mcp_url" "$mcp_path" && sync_mcp "$mcp_path" "$mcp_ex"; then
+        echo "  synced   $mcp_name${mcp_ex:+ [$COMPUTE_CAP: $mcp_ex]}"
+        seed_env_file "$mcp_path" "$mcp_name"
+        write_mcp_wrapper "$mcp_name" "$mcp_path" "$mcp_ep" "$mcp_ex"
       else
         echo "  fail     $mcp_name (clone/sync manually at $mcp_path)"
       fi
